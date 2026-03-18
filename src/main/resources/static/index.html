@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NewsSummary - API 테스트</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', -apple-system, sans-serif; background: #f5f5f5; color: #333; }
+
+        /* 헤더 */
+        header {
+            background: #1a1a2e; color: #fff; padding: 16px 24px;
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        header h1 { font-size: 20px; font-weight: 700; cursor: pointer; }
+        .header-right { display: flex; align-items: center; gap: 12px; }
+        .header-right span { font-size: 14px; color: #ccc; }
+        .header-btn {
+            padding: 6px 16px; border-radius: 8px; border: 1px solid #555;
+            background: transparent; color: #fff; cursor: pointer; font-size: 13px;
+        }
+        .header-btn:hover { background: #333; }
+        .header-btn.primary { background: #1a73e8; border-color: #1a73e8; }
+        .header-btn.primary:hover { background: #1557b0; }
+
+        /* 네비게이션 탭 */
+        .nav-tabs {
+            display: flex; gap: 0; background: #fff; border-bottom: 2px solid #e0e0e0;
+        }
+        .nav-tab {
+            padding: 14px 28px; border: none; background: #fff; cursor: pointer;
+            font-size: 15px; font-weight: 600; color: #888; border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
+        }
+        .nav-tab:hover { color: #333; }
+        .nav-tab.active { color: #1a73e8; border-bottom-color: #1a73e8; }
+
+        /* 카테고리 탭 */
+        .tabs {
+            display: flex; gap: 8px; padding: 16px 24px; background: #fff;
+            border-bottom: 1px solid #e0e0e0; flex-wrap: wrap;
+        }
+        .tab {
+            padding: 8px 16px; border-radius: 20px; border: 1px solid #ddd;
+            background: #fff; cursor: pointer; font-size: 14px; transition: all 0.2s;
+        }
+        .tab:hover { background: #f0f0f0; }
+        .tab.active { background: #1a1a2e; color: #fff; border-color: #1a1a2e; }
+
+        /* 컨텐츠 영역 */
+        .container { max-width: 960px; margin: 0 auto; padding: 24px; }
+        .page { display: none; }
+        .page.active { display: block; }
+
+        /* 기사 목록 */
+        .article-list { display: flex; flex-direction: column; gap: 16px; }
+        .article-card {
+            background: #fff; border-radius: 12px; overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            transition: transform 0.2s, box-shadow 0.2s;
+            display: flex; min-height: 140px;
+        }
+        .article-card:hover { transform: translateY(-2px); box-shadow: 0 4px 16px rgba(0,0,0,0.12); }
+        .card-thumb {
+            width: 200px; min-height: 140px; background: #e0e0e0;
+            flex-shrink: 0; object-fit: cover; cursor: pointer;
+        }
+        .card-body { padding: 16px; display: flex; flex-direction: column; gap: 8px; flex: 1; cursor: pointer; }
+        .card-category {
+            font-size: 12px; font-weight: 600; color: #1a73e8;
+            background: #e8f0fe; padding: 3px 10px; border-radius: 10px;
+            display: inline-block; width: fit-content;
+        }
+        .card-title { font-size: 17px; font-weight: 600; line-height: 1.4; }
+        .card-meta { font-size: 13px; color: #888; margin-top: auto; display: flex; align-items: center; justify-content: space-between; }
+        .save-btn {
+            padding: 4px 12px; border-radius: 6px; border: 1px solid #ddd;
+            background: #fff; cursor: pointer; font-size: 12px;
+        }
+        .save-btn:hover { background: #f0f0f0; }
+        .save-btn.saved { background: #1a73e8; color: #fff; border-color: #1a73e8; }
+
+        /* 상세 모달 */
+        .detail-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+            display: none; justify-content: center; align-items: start;
+            padding: 40px 24px; overflow-y: auto; z-index: 100;
+        }
+        .detail-overlay.open { display: flex; }
+        .detail-panel {
+            background: #fff; border-radius: 16px; max-width: 720px; width: 100%;
+            padding: 32px; position: relative;
+        }
+        .detail-close {
+            position: absolute; top: 16px; right: 16px; border: none;
+            background: #f0f0f0; border-radius: 50%; width: 36px; height: 36px;
+            font-size: 18px; cursor: pointer; display: flex; align-items: center;
+            justify-content: center;
+        }
+        .detail-close:hover { background: #ddd; }
+        .detail-category { font-size: 13px; font-weight: 600; color: #1a73e8; margin-bottom: 8px; }
+        .detail-title { font-size: 24px; font-weight: 700; line-height: 1.4; margin-bottom: 12px; }
+        .detail-meta { font-size: 14px; color: #888; margin-bottom: 20px; }
+        .detail-thumb {
+            width: 100%; border-radius: 12px; margin-bottom: 20px; max-height: 360px; object-fit: cover;
+        }
+        .detail-content {
+            font-size: 16px; line-height: 1.8; color: #444; margin-bottom: 28px;
+            white-space: pre-wrap;
+        }
+        .detail-link { color: #1a73e8; font-size: 14px; text-decoration: none; }
+        .detail-link:hover { text-decoration: underline; }
+        .detail-save-btn {
+            display: inline-block; padding: 8px 20px; border-radius: 8px; border: 1px solid #ddd;
+            background: #fff; cursor: pointer; font-size: 14px; margin-bottom: 20px;
+        }
+        .detail-save-btn:hover { background: #f0f0f0; }
+        .detail-save-btn.saved { background: #1a73e8; color: #fff; border-color: #1a73e8; }
+
+        /* AI 요약 박스 */
+        .summary-box {
+            background: #f8f9ff; border: 1px solid #d0d7ff; border-radius: 12px;
+            padding: 20px; margin-bottom: 24px;
+        }
+        .summary-box h3 { font-size: 15px; font-weight: 700; color: #1a73e8; margin-bottom: 14px; }
+        .summary-lines { list-style: none; display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+        .summary-lines li { font-size: 15px; line-height: 1.5; padding-left: 20px; position: relative; }
+        .summary-lines li::before {
+            content: ''; position: absolute; left: 0; top: 8px;
+            width: 8px; height: 8px; background: #1a73e8; border-radius: 50%;
+        }
+        .key-points { display: flex; gap: 8px; flex-wrap: wrap; }
+        .key-point {
+            background: #e8f0fe; color: #1a53b8; font-size: 13px; font-weight: 500;
+            padding: 6px 14px; border-radius: 16px;
+        }
+
+        /* 로그인 폼 */
+        .auth-box {
+            max-width: 400px; margin: 60px auto; background: #fff;
+            border-radius: 16px; padding: 32px; box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        }
+        .auth-box h2 { font-size: 22px; margin-bottom: 24px; text-align: center; }
+        .auth-box input {
+            width: 100%; padding: 12px 14px; border: 1px solid #ddd; border-radius: 8px;
+            font-size: 15px; margin-bottom: 12px;
+        }
+        .auth-box input:focus { outline: none; border-color: #1a73e8; }
+        .auth-box button {
+            width: 100%; padding: 12px; border: none; border-radius: 8px;
+            background: #1a73e8; color: #fff; font-size: 16px; font-weight: 600;
+            cursor: pointer; margin-top: 8px;
+        }
+        .auth-box button:hover { background: #1557b0; }
+        .auth-box .switch { text-align: center; margin-top: 16px; font-size: 14px; color: #888; }
+        .auth-box .switch a { color: #1a73e8; cursor: pointer; text-decoration: none; }
+        .auth-msg { text-align: center; margin-top: 12px; font-size: 14px; }
+        .auth-msg.error { color: #d93025; }
+        .auth-msg.success { color: #1a73e8; }
+
+        /* 마이페이지 */
+        .mypage-section {
+            background: #fff; border-radius: 16px; padding: 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 20px;
+        }
+        .mypage-section h3 { font-size: 16px; font-weight: 700; margin-bottom: 16px; color: #333; }
+        .profile-info { display: flex; align-items: center; gap: 20px; }
+        .profile-avatar {
+            width: 64px; height: 64px; border-radius: 50%; background: #1a73e8;
+            display: flex; align-items: center; justify-content: center;
+            color: #fff; font-size: 24px; font-weight: 700; flex-shrink: 0;
+        }
+        .profile-detail h2 { font-size: 20px; font-weight: 700; }
+        .profile-detail p { font-size: 14px; color: #888; margin-top: 4px; }
+        .stat { font-size: 14px; color: #555; margin-top: 8px; }
+        .stat strong { color: #1a73e8; font-size: 18px; }
+        .interest-tags { display: flex; gap: 8px; flex-wrap: wrap; }
+        .interest-tag {
+            padding: 8px 16px; border-radius: 20px; border: 1px solid #ddd;
+            background: #fff; cursor: pointer; font-size: 14px; transition: all 0.2s;
+        }
+        .interest-tag.active { background: #1a73e8; color: #fff; border-color: #1a73e8; }
+        .interest-tag:hover { background: #f0f0f0; }
+        .interest-tag.active:hover { background: #1557b0; }
+
+        /* 검색바 */
+        .search-bar {
+            display: flex; gap: 8px; padding: 16px 24px; background: #fff;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        .search-bar input {
+            flex: 1; padding: 10px 16px; border: 1px solid #ddd; border-radius: 24px;
+            font-size: 15px; outline: none;
+        }
+        .search-bar input:focus { border-color: #1a73e8; }
+        .search-bar button {
+            padding: 10px 20px; border: none; border-radius: 24px;
+            background: #1a73e8; color: #fff; font-size: 14px; font-weight: 600;
+            cursor: pointer;
+        }
+        .search-bar button:hover { background: #1557b0; }
+        .search-info {
+            padding: 12px 24px; background: #f0f4ff; font-size: 14px;
+            color: #1a53b8; display: flex; align-items: center; justify-content: space-between;
+        }
+        .search-info a { color: #1a73e8; cursor: pointer; text-decoration: none; font-weight: 600; }
+
+        /* 읽기 기록 항목 */
+        .history-time { font-size: 12px; color: #aaa; margin-left: 8px; }
+
+        /* 빈 상태 / 로딩 */
+        .empty { text-align: center; padding: 60px 20px; color: #999; font-size: 16px; }
+        .loading { text-align: center; padding: 40px; color: #888; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1 onclick="showPage('news')">NewsSummary</h1>
+        <div class="header-right" id="headerRight"></div>
+    </header>
+
+    <div class="nav-tabs" id="navTabs">
+        <button class="nav-tab active" onclick="showPage('news')">뉴스</button>
+        <button class="nav-tab" onclick="showPage('recommend')">추천</button>
+        <button class="nav-tab" onclick="showPage('mypage')">마이페이지</button>
+    </div>
+
+    <!-- 뉴스 페이지 -->
+    <div class="page active" id="page-news">
+        <div class="search-bar">
+            <input type="text" id="searchInput" placeholder="기사 제목이나 내용으로 검색..." onkeydown="if(event.key==='Enter') doSearch()">
+            <button onclick="doSearch()">검색</button>
+        </div>
+        <div id="searchInfo" style="display:none"></div>
+        <div class="tabs" id="tabs">
+            <button class="tab active" data-category="">전체</button>
+            <button class="tab" data-category="POLITICS">정치</button>
+            <button class="tab" data-category="ECONOMY">경제</button>
+            <button class="tab" data-category="SOCIETY">사회</button>
+            <button class="tab" data-category="IT_SCIENCE">IT/과학</button>
+            <button class="tab" data-category="WORLD">세계</button>
+            <button class="tab" data-category="SPORTS">스포츠</button>
+            <button class="tab" data-category="ENTERTAINMENT">연예</button>
+        </div>
+        <div class="container">
+            <div class="article-list" id="articleList">
+                <div class="loading">기사를 불러오는 중...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 로그인 페이지 -->
+    <div class="page" id="page-login">
+        <div class="auth-box">
+            <h2>로그인</h2>
+            <input type="email" id="loginEmail" placeholder="이메일" value="test@test.com">
+            <input type="password" id="loginPw" placeholder="비밀번호" value="1234">
+            <button onclick="doLogin()">로그인</button>
+            <div class="switch">계정이 없으신가요? <a onclick="showPage('signup')">회원가입</a></div>
+            <div class="auth-msg" id="loginMsg"></div>
+        </div>
+    </div>
+
+    <!-- 회원가입 페이지 -->
+    <div class="page" id="page-signup">
+        <div class="auth-box">
+            <h2>회원가입</h2>
+            <input type="text" id="signupNick" placeholder="닉네임">
+            <input type="email" id="signupEmail" placeholder="이메일">
+            <input type="password" id="signupPw" placeholder="비밀번호">
+            <button onclick="doSignup()">가입하기</button>
+            <div class="switch">이미 계정이 있으신가요? <a onclick="showPage('login')">로그인</a></div>
+            <div class="auth-msg" id="signupMsg"></div>
+        </div>
+    </div>
+
+    <!-- 추천 페이지 -->
+    <div class="page" id="page-recommend">
+        <div class="container">
+            <div class="article-list" id="recommendList">
+                <div class="loading">추천 기사를 불러오는 중...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 마이페이지 -->
+    <div class="page" id="page-mypage">
+        <div class="container" id="mypageContent"></div>
+    </div>
+
+    <!-- 상세 모달 -->
+    <div class="detail-overlay" id="detailOverlay">
+        <div class="detail-panel" id="detailPanel"></div>
+    </div>
+
+    <script>
+        const CATEGORY_LABEL = {
+            POLITICS: '정치', ECONOMY: '경제', SOCIETY: '사회',
+            IT_SCIENCE: 'IT/과학', WORLD: '세계', SPORTS: '스포츠', ENTERTAINMENT: '연예'
+        };
+        const ALL_CATEGORIES = ['POLITICS','ECONOMY','SOCIETY','IT_SCIENCE','WORLD','SPORTS','ENTERTAINMENT'];
+
+        let currentUser = null;  // 로그인된 유저 정보
+        let savedArticleIds = new Set(); // 저장된 기사 ID 목록
+
+        // ── 유틸 ──
+        function formatDate(dt) {
+            const d = new Date(dt);
+            return `${d.getMonth()+1}월 ${d.getDate()}일 ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+        }
+
+        async function api(url, options = {}) {
+            const res = await fetch(url, { headers: { 'Content-Type': 'application/json' }, ...options });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({ message: '요청 실패' }));
+                throw new Error(err.message);
+            }
+            if (res.status === 204 || res.headers.get('content-length') === '0') return null;
+            return res.json();
+        }
+
+        let searchMode = false; // 검색 모드 여부
+
+        // ── 페이지 전환 ──
+        function showPage(page) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+
+            if (page === 'recommend') {
+                document.getElementById('page-recommend').classList.add('active');
+                document.querySelectorAll('.nav-tab')[1].classList.add('active');
+                loadRecommendations();
+            } else if (page === 'mypage') {
+                if (!currentUser) { showPage('login'); return; }
+                document.getElementById('page-mypage').classList.add('active');
+                document.querySelectorAll('.nav-tab')[2].classList.add('active');
+                loadMyPage();
+            } else if (page === 'login') {
+                document.getElementById('page-login').classList.add('active');
+            } else if (page === 'signup') {
+                document.getElementById('page-signup').classList.add('active');
+            } else {
+                document.getElementById('page-news').classList.add('active');
+                document.querySelectorAll('.nav-tab')[0].classList.add('active');
+                clearSearch();
+            }
+        }
+
+        // ── 헤더 갱신 ──
+        function updateHeader() {
+            const el = document.getElementById('headerRight');
+            if (currentUser) {
+                el.innerHTML = `
+                    <span>${currentUser.nickname}님</span>
+                    <button class="header-btn" onclick="doLogout()">로그아웃</button>
+                `;
+            } else {
+                el.innerHTML = `<button class="header-btn primary" onclick="showPage('login')">로그인</button>`;
+            }
+        }
+
+        // ── 로그인 상태 확인 ──
+        async function checkLogin() {
+            try {
+                currentUser = await api('/api/members/me');
+                await loadSavedIds();
+            } catch { currentUser = null; }
+            updateHeader();
+        }
+
+        async function loadSavedIds() {
+            if (!currentUser) return;
+            try {
+                const data = await api('/api/mypage');
+                savedArticleIds = new Set(data.savedArticles.map(a => a.id));
+            } catch { savedArticleIds = new Set(); }
+        }
+
+        // ── 회원가입 ──
+        async function doSignup() {
+            const msg = document.getElementById('signupMsg');
+            try {
+                await api('/api/members/signup', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        nickname: document.getElementById('signupNick').value,
+                        email: document.getElementById('signupEmail').value,
+                        password: document.getElementById('signupPw').value
+                    })
+                });
+                msg.className = 'auth-msg success';
+                msg.textContent = '가입 완료! 로그인해주세요.';
+                setTimeout(() => showPage('login'), 1000);
+            } catch (e) {
+                msg.className = 'auth-msg error';
+                msg.textContent = e.message;
+            }
+        }
+
+        // ── 로그인 ──
+        async function doLogin() {
+            const msg = document.getElementById('loginMsg');
+            try {
+                currentUser = await api('/api/members/login', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        email: document.getElementById('loginEmail').value,
+                        password: document.getElementById('loginPw').value
+                    })
+                });
+                await loadSavedIds();
+                updateHeader();
+                showPage('news');
+                loadArticles('');
+            } catch (e) {
+                msg.className = 'auth-msg error';
+                msg.textContent = e.message;
+            }
+        }
+
+        // ── 로그아웃 ──
+        async function doLogout() {
+            await api('/api/members/logout', { method: 'POST' });
+            currentUser = null;
+            savedArticleIds = new Set();
+            updateHeader();
+            showPage('news');
+            loadArticles('');
+        }
+
+        // ── 기사 목록 ──
+        async function loadArticles(category) {
+            const list = document.getElementById('articleList');
+            list.innerHTML = '<div class="loading">기사를 불러오는 중...</div>';
+            try {
+                const url = category ? `/api/articles?category=${category}` : '/api/articles';
+                const articles = await api(url);
+                if (articles.length === 0) { list.innerHTML = '<div class="empty">표시할 기사가 없습니다.</div>'; return; }
+                list.innerHTML = renderArticleCards(articles);
+            } catch (e) {
+                list.innerHTML = '<div class="empty">API 호출 실패: ' + e.message + '</div>';
+            }
+        }
+
+        // ── 기사 저장/취소 ──
+        async function toggleSave(articleId, btn) {
+            if (!currentUser) { showPage('login'); return; }
+            try {
+                if (savedArticleIds.has(articleId)) {
+                    await api(`/api/mypage/saved-articles/${articleId}`, { method: 'DELETE' });
+                    savedArticleIds.delete(articleId);
+                    btn.textContent = '저장';
+                    btn.classList.remove('saved');
+                } else {
+                    await api(`/api/mypage/saved-articles/${articleId}`, { method: 'POST' });
+                    savedArticleIds.add(articleId);
+                    btn.textContent = '저장됨';
+                    btn.classList.add('saved');
+                }
+            } catch (e) { alert(e.message); }
+        }
+
+        // ── 검색 ──
+        async function doSearch() {
+            const keyword = document.getElementById('searchInput').value.trim();
+            if (!keyword) return;
+            searchMode = true;
+            const info = document.getElementById('searchInfo');
+            info.style.display = 'flex';
+            const list = document.getElementById('articleList');
+            list.innerHTML = '<div class="loading">검색 중...</div>';
+            try {
+                const articles = await api(`/api/articles/search?keyword=${encodeURIComponent(keyword)}`);
+                info.innerHTML = `<span>"${keyword}" 검색 결과 ${articles.length}건</span><a onclick="clearSearch()">검색 초기화</a>`;
+                if (articles.length === 0) { list.innerHTML = '<div class="empty">검색 결과가 없습니다.</div>'; return; }
+                list.innerHTML = renderArticleCards(articles);
+            } catch (e) {
+                list.innerHTML = '<div class="empty">검색 실패: ' + e.message + '</div>';
+            }
+        }
+
+        function clearSearch() {
+            searchMode = false;
+            document.getElementById('searchInput').value = '';
+            document.getElementById('searchInfo').style.display = 'none';
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelector('.tab[data-category=""]').classList.add('active');
+            loadArticles('');
+        }
+
+        // ── 추천 ──
+        async function loadRecommendations() {
+            const list = document.getElementById('recommendList');
+            list.innerHTML = '<div class="loading">추천 기사를 불러오는 중...</div>';
+            try {
+                const articles = await api('/api/articles/recommendations');
+                if (articles.length === 0) {
+                    list.innerHTML = '<div class="empty">추천할 기사가 없습니다. 마이페이지에서 관심 분야를 설정해보세요.</div>';
+                    return;
+                }
+                const header = currentUser
+                    ? '<div style="padding:0 0 16px;font-size:15px;color:#555">관심 분야 기반 추천 기사입니다. 마이페이지에서 관심 분야를 변경할 수 있습니다.</div>'
+                    : '<div style="padding:0 0 16px;font-size:15px;color:#555">로그인 후 관심 분야를 설정하면 맞춤 추천을 받을 수 있습니다.</div>';
+                list.innerHTML = header + renderArticleCards(articles);
+            } catch (e) {
+                list.innerHTML = '<div class="empty">추천 기사 로드 실패: ' + e.message + '</div>';
+            }
+        }
+
+        // ── 기사 카드 공통 렌더링 ──
+        function renderArticleCards(articles) {
+            return articles.map(a => `
+                <div class="article-card">
+                    <img class="card-thumb" src="${a.thumbnailUrl || ''}" alt=""
+                         onerror="this.style.display='none'" onclick="loadDetail(${a.id})">
+                    <div class="card-body" onclick="loadDetail(${a.id})">
+                        <span class="card-category">${CATEGORY_LABEL[a.category] || a.category}</span>
+                        <div class="card-title">${a.title}</div>
+                        <div class="card-meta">
+                            <span>${a.source || ''} · ${formatDate(a.publishedAt)}</span>
+                            ${currentUser ? `<button class="save-btn ${savedArticleIds.has(a.id) ? 'saved' : ''}"
+                                onclick="event.stopPropagation(); toggleSave(${a.id}, this)">
+                                ${savedArticleIds.has(a.id) ? '저장됨' : '저장'}
+                            </button>` : ''}
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // ── 기사 상세 ──
+        async function loadDetail(id) {
+            const overlay = document.getElementById('detailOverlay');
+            const panel = document.getElementById('detailPanel');
+            panel.innerHTML = '<div class="loading">불러오는 중...</div>';
+            overlay.classList.add('open');
+
+            // 로그인 상태면 읽기 기록 저장
+            if (currentUser) {
+                api(`/api/mypage/read-history/${id}`, { method: 'POST' }).catch(() => {});
+            }
+
+            try {
+                const a = await api(`/api/articles/${id}`);
+                let summaryHtml = '';
+                if (a.summary) {
+                    summaryHtml = `
+                        <div class="summary-box">
+                            <h3>AI 3줄 요약</h3>
+                            <ul class="summary-lines">
+                                <li>${a.summary.summaryLine1}</li>
+                                <li>${a.summary.summaryLine2}</li>
+                                <li>${a.summary.summaryLine3}</li>
+                            </ul>
+                            <div class="key-points">
+                                <span class="key-point">${a.summary.keyPoint1}</span>
+                                <span class="key-point">${a.summary.keyPoint2}</span>
+                                <span class="key-point">${a.summary.keyPoint3}</span>
+                            </div>
+                        </div>`;
+                }
+                let saveHtml = '';
+                if (currentUser) {
+                    const isSaved = savedArticleIds.has(a.id);
+                    saveHtml = `<button class="detail-save-btn ${isSaved ? 'saved' : ''}"
+                        onclick="toggleSaveDetail(${a.id}, this)">${isSaved ? '저장됨' : '기사 저장'}</button>`;
+                }
+                panel.innerHTML = `
+                    <button class="detail-close" onclick="closeDetail()">&times;</button>
+                    <div class="detail-category">${CATEGORY_LABEL[a.category] || a.category}</div>
+                    <div class="detail-title">${a.title}</div>
+                    <div class="detail-meta">${a.source || ''} · ${formatDate(a.publishedAt)}</div>
+                    ${a.thumbnailUrl ? `<img class="detail-thumb" src="${a.thumbnailUrl}" alt="" onerror="this.style.display='none'">` : ''}
+                    ${saveHtml}
+                    ${summaryHtml}
+                    <div class="detail-content">${a.content || ''}</div>
+                    <a class="detail-link" href="${a.originalUrl}" target="_blank">원문 보기 →</a>
+                `;
+            } catch (e) {
+                panel.innerHTML = `
+                    <button class="detail-close" onclick="closeDetail()">&times;</button>
+                    <div class="empty">${e.message}</div>`;
+            }
+        }
+
+        async function toggleSaveDetail(articleId, btn) {
+            if (!currentUser) return;
+            try {
+                if (savedArticleIds.has(articleId)) {
+                    await api(`/api/mypage/saved-articles/${articleId}`, { method: 'DELETE' });
+                    savedArticleIds.delete(articleId);
+                    btn.textContent = '기사 저장';
+                    btn.classList.remove('saved');
+                } else {
+                    await api(`/api/mypage/saved-articles/${articleId}`, { method: 'POST' });
+                    savedArticleIds.add(articleId);
+                    btn.textContent = '저장됨';
+                    btn.classList.add('saved');
+                }
+            } catch (e) { alert(e.message); }
+        }
+
+        function closeDetail() {
+            document.getElementById('detailOverlay').classList.remove('open');
+        }
+
+        // ── 마이페이지 ──
+        async function loadMyPage() {
+            const el = document.getElementById('mypageContent');
+            el.innerHTML = '<div class="loading">불러오는 중...</div>';
+            try {
+                const data = await api('/api/mypage');
+                const interestSet = new Set(data.interests);
+
+                // 읽기 기록도 함께 로드
+                let readHistory = [];
+                try { readHistory = await api('/api/mypage/read-history'); } catch {}
+
+                el.innerHTML = `
+                    <div class="mypage-section">
+                        <div class="profile-info">
+                            <div class="profile-avatar">${data.nickname.charAt(0)}</div>
+                            <div class="profile-detail">
+                                <h2>${data.nickname}</h2>
+                                <p>${data.email}</p>
+                                <div class="stat">읽은 기사 <strong>${data.readArticleCount}</strong>개</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mypage-section">
+                        <h3>관심 분야</h3>
+                        <div class="interest-tags" id="interestTags">
+                            ${ALL_CATEGORIES.map(c => `
+                                <button class="interest-tag ${interestSet.has(c) ? 'active' : ''}"
+                                    data-cat="${c}" onclick="toggleInterest('${c}', this)">
+                                    ${CATEGORY_LABEL[c]}
+                                </button>
+                            `).join('')}
+                        </div>
+                    </div>
+
+                    <div class="mypage-section">
+                        <h3>저장한 기사 (${data.savedArticles.length})</h3>
+                        ${data.savedArticles.length === 0
+                            ? '<div class="empty" style="padding:20px">저장한 기사가 없습니다.</div>'
+                            : `<div class="article-list">${data.savedArticles.map(a => `
+                                <div class="article-card">
+                                    <img class="card-thumb" src="${a.thumbnailUrl || ''}" alt=""
+                                         onerror="this.style.display='none'" onclick="loadDetail(${a.id})">
+                                    <div class="card-body" onclick="loadDetail(${a.id})">
+                                        <span class="card-category">${CATEGORY_LABEL[a.category] || a.category}</span>
+                                        <div class="card-title">${a.title}</div>
+                                        <div class="card-meta">
+                                            <span>${a.source || ''} · ${formatDate(a.publishedAt)}</span>
+                                            <button class="save-btn saved"
+                                                onclick="event.stopPropagation(); unsaveFromMypage(${a.id})">저장됨</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            `).join('')}</div>`}
+                    </div>
+
+                    <div class="mypage-section">
+                        <h3>읽기 기록 (${readHistory.length})</h3>
+                        ${readHistory.length === 0
+                            ? '<div class="empty" style="padding:20px">읽은 기사가 없습니다.</div>'
+                            : `<div class="article-list">${readHistory.map(h => `
+                                <div class="article-card">
+                                    <img class="card-thumb" src="${h.thumbnailUrl || ''}" alt=""
+                                         onerror="this.style.display='none'" onclick="loadDetail(${h.articleId})">
+                                    <div class="card-body" onclick="loadDetail(${h.articleId})">
+                                        <span class="card-category">${CATEGORY_LABEL[h.category] || h.category}</span>
+                                        <div class="card-title">${h.title}</div>
+                                        <div class="card-meta">
+                                            <span>${h.source || ''} · ${formatDate(h.publishedAt)}</span>
+                                            <span class="history-time">${formatDate(h.readAt)}에 읽음</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            `).join('')}</div>`}
+                    </div>
+                `;
+            } catch (e) {
+                el.innerHTML = '<div class="empty">' + e.message + '</div>';
+            }
+        }
+
+        // ── 관심 분야 토글 ──
+        async function toggleInterest(category, btn) {
+            try {
+                if (btn.classList.contains('active')) {
+                    await api(`/api/mypage/interests/${category}`, { method: 'DELETE' });
+                    btn.classList.remove('active');
+                } else {
+                    await api(`/api/mypage/interests/${category}`, { method: 'POST' });
+                    btn.classList.add('active');
+                }
+            } catch (e) { alert(e.message); }
+        }
+
+        // ── 마이페이지에서 저장 취소 ──
+        async function unsaveFromMypage(articleId) {
+            try {
+                await api(`/api/mypage/saved-articles/${articleId}`, { method: 'DELETE' });
+                savedArticleIds.delete(articleId);
+                loadMyPage();
+            } catch (e) { alert(e.message); }
+        }
+
+        // ── 이벤트 바인딩 ──
+        document.getElementById('detailOverlay').addEventListener('click', e => {
+            if (e.target === e.currentTarget) closeDetail();
+        });
+        document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDetail(); });
+
+        document.getElementById('tabs').addEventListener('click', e => {
+            const tab = e.target.closest('.tab');
+            if (!tab) return;
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            loadArticles(tab.dataset.category);
+        });
+
+        // ── 초기화 ──
+        checkLogin().then(() => loadArticles(''));
+    </script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./gradlew compileJava)",
+      "Bash(curl -s http://localhost:8080/api/articles)",
+      "Bash(curl -s http://localhost:8080/api/articles/1)",
+      "Bash(curl:*)",
+      "Bash(xargs grep:*)"
+    ]
+  }
+}
