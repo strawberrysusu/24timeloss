@@ -31,7 +31,10 @@ public class ArticleSummary extends BaseTimeEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // 어떤 기사에 대한 요약인지 연결한다.
+    // @OneToOne: 기사 1개당 요약 1개. Article과 1:1 관계.
+    // fetch = LAZY: 요약을 조회할 때 기사를 즉시 로딩하지 않는다 (성능 최적화).
+    // optional = false: 요약은 반드시 기사와 연결되어야 한다 (기사 없는 요약은 불가).
+    // unique = true: 하나의 기사에 두 개 이상의 요약이 생기는 것을 DB 레벨에서 방지한다.
     @OneToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "article_id", nullable = false, unique = true)
     private Article article;
@@ -66,5 +69,18 @@ public class ArticleSummary extends BaseTimeEntity {
         this.keyPoint1 = keyPoint1;
         this.keyPoint2 = keyPoint2;
         this.keyPoint3 = keyPoint3;
+    }
+
+    /**
+     * 요약 내용을 수정한다.
+     */
+    public void update(String summaryLine1, String summaryLine2, String summaryLine3,
+                       String keyPoint1, String keyPoint2, String keyPoint3) {
+        if (summaryLine1 != null) this.summaryLine1 = summaryLine1;
+        if (summaryLine2 != null) this.summaryLine2 = summaryLine2;
+        if (summaryLine3 != null) this.summaryLine3 = summaryLine3;
+        if (keyPoint1 != null) this.keyPoint1 = keyPoint1;
+        if (keyPoint2 != null) this.keyPoint2 = keyPoint2;
+        if (keyPoint3 != null) this.keyPoint3 = keyPoint3;
     }
 }

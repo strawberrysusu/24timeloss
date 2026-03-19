@@ -1,0 +1,1504 @@
+<!doctype html>
+<html lang="ko">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NewsPick — AI 뉴스 요약</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&family=DM+Serif+Display:ital@0;1&display=swap"
+    rel="stylesheet" />
+  <link rel="stylesheet" href="/style.css" />
+</head>
+
+<body data-initial-page="{{initialPage}}" data-initial-article-id="{{initialArticleId}}">
+
+  <!-- ══════════════════════════════════════
+     HEADER
+══════════════════════════════════════ -->
+  <header class="site-header">
+    <div class="container">
+      <button class="logo-btn" onclick="resetHome()">
+        <div class="logo-icon"><span>N</span></div>
+        <span class="logo-text">NewsPick</span>
+      </button>
+
+      <nav class="main-nav">
+        <button onclick="resetHome()">홈</button>
+        <button onclick="scrollToSection('cat-tabs-wrap')">카테고리</button>
+        <button onclick="scrollToSection('trending-list')">트렌딩</button>
+        <button id="nav-mypage-btn" onclick="handleMyPageClick()">마이페이지</button>
+      </nav>
+
+      <div class="header-actions" id="header-actions">
+        <button class="btn btn-ghost" onclick="openModal('login')">로그인</button>
+        <button class="btn btn-solid" onclick="openModal('signup')">회원가입</button>
+      </div>
+    </div>
+  </header>
+
+
+  <!-- 샘플 데이터 안내 배너 (닫기 가능) -->
+  <div id="sample-banner" style="background:linear-gradient(90deg,#eef2ff,#f0fdf4);border-bottom:1px solid #e2e8f0;padding:10px 0;text-align:center;font-size:13px;color:#475569;">
+    <div class="container" style="display:flex;align-items:center;justify-content:center;gap:8px;">
+      <span>📌 현재 표시된 뉴스는 <b>시연용 샘플 데이터</b>입니다. 로그인 후 <b>기사 등록</b>으로 실제 뉴스를 추가할 수 있습니다.</span>
+      <button onclick="document.getElementById('sample-banner').style.display='none'" style="background:none;border:none;cursor:pointer;font-size:16px;color:#94a3b8;">✕</button>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════
+     PAGE: HOME
+══════════════════════════════════════ -->
+  <div id="page-home" class="page active">
+
+    <!-- Hero -->
+    <section class="hero">
+      <div class="hero-inner">
+        <span class="hero-badge">
+          <span class="hero-badge-dot"></span>
+          AI 뉴스 요약 서비스
+        </span>
+
+        <h1 class="hero-title">
+          오늘의 뉴스,<br /><em>3줄</em>로 끝내세요
+        </h1>
+
+        <p class="hero-desc">
+          AI가 복잡한 기사를 핵심만 추려드립니다.<br />
+          관심 분야를 설정하고 맞춤 뉴스를 받아보세요.
+        </p>
+
+        <div class="search-wrap">
+          <label class="search-label">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <circle cx="11" cy="11" r="8" />
+              <path d="m21 21-4.35-4.35" />
+            </svg>
+            <input class="search-input" type="text" placeholder="뉴스 키워드 검색..." />
+          </label>
+          <button class="search-btn">검색</button>
+        </div>
+
+        <div class="trending-keywords" id="trending-keywords">
+          <span class="label">인기 검색어:</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Category tabs -->
+    <div class="cat-tabs-wrap">
+      <div class="container">
+        <div class="cat-tabs">
+          <button class="cat-pill active" onclick="setCategory(this)">전체</button>
+          <button class="cat-pill" onclick="setCategory(this)">정치</button>
+          <button class="cat-pill" onclick="setCategory(this)">경제</button>
+          <button class="cat-pill" onclick="setCategory(this)">사회</button>
+          <button class="cat-pill" onclick="setCategory(this)">IT·과학</button>
+          <button class="cat-pill" onclick="setCategory(this)">세계</button>
+          <button class="cat-pill" onclick="setCategory(this)">스포츠</button>
+          <button class="cat-pill" onclick="setCategory(this)">연예</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main content -->
+    <div class="container">
+      <div class="main-grid">
+
+        <!-- News feed (동적 렌더링) -->
+        <section class="news-feed" id="news-feed">
+          <div class="loading-msg">기사를 불러오는 중...</div>
+        </section>
+
+        <!-- Sidebar -->
+        <aside class="sidebar">
+
+          <!-- AI 브리핑 -->
+          <div class="sidebar-card-dark" id="sidebar-briefing">
+            <div class="sidebar-title-dark">
+              <span class="sidebar-badge-dark">✦ 오늘의 AI 브리핑</span>
+              <span class="sidebar-time" id="briefing-time">--:-- 기준</span>
+            </div>
+            <p class="briefing-text" id="briefing-text">브리핑을 불러오는 중...</p>
+          </div>
+
+          <!-- 실시간 트렌딩 -->
+          <div class="sidebar-card">
+            <h3 class="sidebar-title">📈 실시간 트렌딩</h3>
+            <ol class="trending-list" id="trending-list">
+              <li class="trending-item"><span class="trending-text">트렌딩 뉴스를 불러오는 중...</span></li>
+            </ol>
+          </div>
+
+          <!-- 관심 분야 -->
+          <div class="sidebar-card">
+            <h3 class="sidebar-title">관심 분야 설정</h3>
+            <div class="interest-tags" id="sidebar-interests"></div>
+          </div>
+
+        </aside>
+      </div>
+    </div>
+  </div><!-- /page-home -->
+
+
+  <!-- ══════════════════════════════════════
+     PAGE: DETAIL
+══════════════════════════════════════ -->
+  <div id="page-detail" class="page">
+
+    <!-- Breadcrumb (동적) -->
+    <div class="breadcrumb">
+      <div class="container">
+        <div class="breadcrumb-inner" id="detail-breadcrumb">
+          <button onclick="showPage('home')">홈</button>
+          <span class="sep">/</span>
+          <span class="current">기사</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="container">
+      <div class="detail-grid">
+        <!-- Article (동적 렌더링) -->
+        <article id="article-detail">
+          <div class="loading-msg">기사를 불러오는 중...</div>
+        </article>
+
+        <!-- Related news (동적 렌더링) -->
+        <aside class="related-news" id="related-news">
+          <h3 class="related-title">관련 뉴스</h3>
+        </aside>
+      </div>
+    </div>
+  </div><!-- /page-detail -->
+
+
+  <!-- ══════════════════════════════════════
+     PAGE: MYPAGE
+══════════════════════════════════════ -->
+  <div id="page-mypage" class="page">
+    <div class="container">
+      <div class="mypage-grid">
+
+        <!-- Profile sidebar (동적) -->
+        <aside class="profile-card" id="profile-card">
+          <div class="profile-top">
+            <div class="profile-avatar"><span id="profile-initial">?</span></div>
+            <p class="profile-name" id="profile-name">-</p>
+            <p class="profile-email" id="profile-email">-</p>
+          </div>
+          <nav class="side-nav">
+            <div class="side-nav-item active" data-section="feed">
+              <span class="icon">📰</span>
+              <span class="label">내 피드</span>
+            </div>
+            <div class="side-nav-item" data-section="saved">
+              <span class="icon">🔖</span>
+              <span class="label">저장한 뉴스</span>
+            </div>
+            <div class="side-nav-item" data-section="history">
+              <span class="icon">📖</span>
+              <span class="label">읽기 기록</span>
+            </div>
+            <div class="side-nav-item" data-section="interests">
+              <span class="icon">🏷️</span>
+              <span class="label">관심 분야</span>
+            </div>
+            <div class="side-nav-item" data-section="settings">
+              <span class="icon">⚙️</span>
+              <span class="label">계정 설정</span>
+            </div>
+          </nav>
+        </aside>
+
+        <!-- Main content (동적) -->
+        <main id="mypage-main">
+
+          <!-- Stats -->
+          <div class="stats-grid" id="section-feed">
+            <div class="stat-card">
+              <p class="stat-value" id="stat-read">0</p>
+              <p class="stat-label">읽은 기사 수</p>
+            </div>
+            <div class="stat-card">
+              <p class="stat-value" id="stat-saved">0</p>
+              <p class="stat-label">저장한 기사</p>
+            </div>
+            <div class="stat-card-dark">
+              <p class="stat-value-dark" id="stat-streak">0일</p>
+              <p class="stat-label-dark">연속 방문</p>
+            </div>
+          </div>
+
+          <!-- Interests (동적) -->
+          <div class="settings-card" id="section-interests">
+            <div class="settings-card-header">
+              <h3 class="settings-card-title">관심 분야 설정</h3>
+              <span class="settings-card-hint">선택한 항목 기반으로 피드가 구성됩니다</span>
+            </div>
+            <div class="interest-tags" id="mypage-interests"></div>
+          </div>
+
+          <!-- Saved news (동적) -->
+          <div class="settings-card" id="section-saved">
+            <div class="settings-card-header">
+              <h3 class="settings-card-title">최근 저장된 뉴스</h3>
+            </div>
+            <div class="saved-grid" id="mypage-saved"></div>
+          </div>
+
+          <!-- Read history (동적) -->
+          <div class="settings-card" id="section-history">
+            <div class="settings-card-header">
+              <h3 class="settings-card-title">읽기 기록</h3>
+            </div>
+            <div class="saved-grid" id="mypage-history"></div>
+          </div>
+
+          <!-- Account settings -->
+          <div class="settings-card" id="section-settings">
+            <div class="settings-card-header">
+              <h3 class="settings-card-title">계정 설정</h3>
+            </div>
+            <div id="mypage-settings" style="padding:4px 0;">
+              <p id="settings-email" style="font-size:14px;color:var(--muted);margin-bottom:16px;"></p>
+
+              <!-- 닉네임 변경 -->
+              <div style="margin-bottom:20px;">
+                <label style="font-size:13px;font-weight:500;color:var(--ink);display:block;margin-bottom:6px;">닉네임 변경</label>
+                <div style="display:flex;gap:8px;align-items:center;">
+                  <input class="modal-input" id="settings-nickname-input" type="text" placeholder="새 닉네임" style="margin:0;flex:1;" />
+                  <button class="btn btn-solid btn-md" onclick="handleUpdateNickname()">변경</button>
+                </div>
+                <div class="modal-error" id="nickname-error" style="margin-top:4px;"></div>
+                <div id="nickname-success" style="margin-top:4px;font-size:12px;color:#16a34a;"></div>
+              </div>
+
+              <!-- 비밀번호 변경 -->
+              <div style="margin-bottom:20px;">
+                <label style="font-size:13px;font-weight:500;color:var(--ink);display:block;margin-bottom:6px;">비밀번호 변경</label>
+                <input class="modal-input" id="settings-current-pw" type="password" placeholder="현재 비밀번호" style="margin-bottom:6px;" />
+                <input class="modal-input" id="settings-new-pw" type="password" placeholder="새 비밀번호 (4자 이상)" style="margin-bottom:6px;" />
+                <button class="btn btn-solid btn-md" onclick="handleUpdatePassword()">비밀번호 변경</button>
+                <div class="modal-error" id="password-error" style="margin-top:4px;"></div>
+                <div id="password-success" style="margin-top:4px;font-size:12px;color:#16a34a;"></div>
+              </div>
+
+              <hr style="border:none;border-top:1px solid var(--border);margin:16px 0;" />
+              <button class="btn btn-ghost btn-md" onclick="handleLogout()">로그아웃</button>
+            </div>
+          </div>
+
+        </main>
+      </div>
+    </div>
+  </div><!-- /page-mypage -->
+
+
+  <!-- ══════════════════════════════════════
+     FOOTER
+══════════════════════════════════════ -->
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-inner">
+        <div class="footer-logo">
+          <div class="footer-logo-icon"><span>N</span></div>
+          <span class="footer-logo-text">NewsPick</span>
+        </div>
+        <p class="footer-copy">© 2026 NewsPick. AI 뉴스 요약 서비스.</p>
+        <nav class="footer-links">
+          <a href="#">이용약관</a>
+          <a href="#">개인정보처리방침</a>
+          <a href="#">문의</a>
+        </nav>
+      </div>
+    </div>
+  </footer>
+
+
+  <!-- ══════════════════════════════════════
+     MODALS
+  ══════════════════════════════════════ -->
+  <div class="modal-overlay" id="modal-overlay" onclick="closeModal()">
+    <!-- 로그인 모달 -->
+    <div class="modal-box" id="modal-login" onclick="event.stopPropagation()">
+      <button class="modal-close" onclick="closeModal()">&times;</button>
+      <h2 class="modal-title">로그인</h2>
+      <p class="modal-desc">NewsPick에 오신 것을 환영합니다</p>
+      <div class="modal-error" id="login-error"></div>
+      <input class="modal-input" id="login-email" type="email" placeholder="이메일" />
+      <input class="modal-input" id="login-password" type="password" placeholder="비밀번호" />
+      <button class="btn btn-solid modal-submit" id="login-btn" onclick="handleLogin()">로그인</button>
+      <p class="modal-switch">계정이 없으신가요? <button onclick="switchModal('signup')">회원가입</button></p>
+    </div>
+
+    <!-- 회원가입 모달 -->
+    <div class="modal-box" id="modal-signup" onclick="event.stopPropagation()" style="display:none">
+      <button class="modal-close" onclick="closeModal()">&times;</button>
+      <h2 class="modal-title">회원가입</h2>
+      <p class="modal-desc">간단한 가입으로 맞춤 뉴스를 받아보세요</p>
+      <div class="modal-error" id="signup-error"></div>
+      <input class="modal-input" id="signup-nickname" type="text" placeholder="닉네임" />
+      <input class="modal-input" id="signup-email" type="email" placeholder="이메일" />
+      <input class="modal-input" id="signup-password" type="password" placeholder="비밀번호" />
+      <button class="btn btn-solid modal-submit" id="signup-btn" onclick="handleSignup()">회원가입</button>
+      <p class="modal-switch">이미 계정이 있으신가요? <button onclick="switchModal('login')">로그인</button></p>
+    </div>
+
+    <!-- 기사 등록 모달 -->
+    <div class="modal-box" id="modal-admin" onclick="event.stopPropagation()" style="display:none;max-width:520px;">
+      <button class="modal-close" onclick="closeModal()">&times;</button>
+      <h2 class="modal-title">기사 등록</h2>
+      <p class="modal-desc">실제 뉴스를 직접 등록해보세요</p>
+      <div class="modal-error" id="admin-error"></div>
+      <select class="modal-input" id="admin-category">
+        <option value="">카테고리 선택</option>
+        <option value="POLITICS">정치</option>
+        <option value="ECONOMY">경제</option>
+        <option value="SOCIETY">사회</option>
+        <option value="IT_SCIENCE">IT·과학</option>
+        <option value="WORLD">세계</option>
+        <option value="SPORTS">스포츠</option>
+        <option value="ENTERTAINMENT">연예</option>
+      </select>
+      <input class="modal-input" id="admin-title" type="text" placeholder="기사 제목" />
+      <input class="modal-input" id="admin-source" type="text" placeholder="출처 (예: 한국일보) — 선택" />
+      <input class="modal-input" id="admin-url" type="text" placeholder="원문 URL — 선택" />
+      <textarea class="modal-input" id="admin-content" placeholder="기사 본문" rows="4" style="resize:vertical;font-family:inherit;"></textarea>
+      <details style="margin-bottom:12px;">
+        <summary style="cursor:pointer;font-size:13px;color:var(--muted);">AI 요약 직접 입력 (선택)</summary>
+        <div style="margin-top:8px;">
+          <input class="modal-input" id="admin-s1" type="text" placeholder="요약 1줄" />
+          <input class="modal-input" id="admin-s2" type="text" placeholder="요약 2줄" />
+          <input class="modal-input" id="admin-s3" type="text" placeholder="요약 3줄" />
+          <input class="modal-input" id="admin-k1" type="text" placeholder="핵심 포인트 1" />
+          <input class="modal-input" id="admin-k2" type="text" placeholder="핵심 포인트 2" />
+          <input class="modal-input" id="admin-k3" type="text" placeholder="핵심 포인트 3" />
+        </div>
+      </details>
+      <button class="btn btn-solid modal-submit" onclick="handleAdminSubmit()">등록하기</button>
+    </div>
+  </div>
+
+  <script>
+    /* ══════════════════════════════════════════
+       STATE
+    ══════════════════════════════════════════ */
+    const state = {
+      currentUser: null,
+      currentCategory: null,
+      currentPage: 0,
+      isLastPage: false,
+      currentArticleId: null,
+      searchMode: false,
+      searchKeyword: '',
+      savedArticleIds: new Set()
+    };
+
+    const CATEGORY_MAP = {
+      '전체': null, '정치': 'POLITICS', '경제': 'ECONOMY', '사회': 'SOCIETY',
+      'IT·과학': 'IT_SCIENCE', '세계': 'WORLD', '스포츠': 'SPORTS', '연예': 'ENTERTAINMENT'
+    };
+    const CATEGORY_KR = {
+      POLITICS: '정치', ECONOMY: '경제', SOCIETY: '사회', IT_SCIENCE: 'IT·과학',
+      WORLD: '세계', SPORTS: '스포츠', ENTERTAINMENT: '연예'
+    };
+
+    /* ══════════════════════════════════════════
+       API HELPER
+    ══════════════════════════════════════════ */
+    async function api(url, options = {}) {
+      const res = await fetch(url, {
+        headers: { 'Content-Type': 'application/json' },
+        ...options
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ message: '오류가 발생했습니다.' }));
+        // 통일된 ErrorResponse 형식 지원 (status, code, message, timestamp)
+        throw new Error(err.message || '오류가 발생했습니다.');
+      }
+      if (res.status === 204 || res.headers.get('content-length') === '0') return null;
+      return res.json();
+    }
+
+    /* ══════════════════════════════════════════
+       DATE FORMAT
+    ══════════════════════════════════════════ */
+    function formatDate(dateStr) {
+      if (!dateStr) return '';
+      const d = new Date(dateStr);
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}.${m}.${day}`;
+    }
+
+    function formatDateFull(dateStr) {
+      if (!dateStr) return '';
+      const d = new Date(dateStr);
+      const y = d.getFullYear();
+      const m = d.getMonth() + 1;
+      const day = d.getDate();
+      const h = String(d.getHours()).padStart(2, '0');
+      const min = String(d.getMinutes()).padStart(2, '0');
+      return `${y}년 ${m}월 ${day}일 ${h}:${min}`;
+    }
+
+    function formatTime(dateStr) {
+      if (!dateStr) return '--:--';
+      const d = new Date(dateStr);
+      return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+    }
+
+    /* ══════════════════════════════════════════
+       HELPERS
+    ══════════════════════════════════════════ */
+
+    /**
+     * HTML 특수문자를 이스케이프한다 (XSS 방어).
+     * 사용자 입력값을 innerHTML에 넣기 전에 반드시 이 함수를 거쳐야 한다.
+     */
+    function esc(str) {
+      if (!str) return '';
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    /**
+     * URL을 안전하게 이스케이프한다.
+     * javascript: 프로토콜 등 위험한 URL을 차단한다.
+     */
+    function escUrl(url) {
+      if (!url) return '';
+      const trimmed = url.trim();
+      if (/^https?:\/\//i.test(trimmed)) return esc(trimmed);
+      return '';
+    }
+
+    // 원문 URL이 진짜인지 판별한다.
+    // null, 빈 문자열, 시연용 example.com은 가짜로 취급한다.
+    function isRealUrl(url) {
+      return url && url.trim() !== '' && !url.includes('example.com');
+    }
+
+    /* ══════════════════════════════════════════
+       PAGE SWITCHING
+    ══════════════════════════════════════════ */
+    function showPage(name, skipHistory) {
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.getElementById('page-' + name).classList.add('active');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+
+      if (!skipHistory) {
+        const url = name === 'home' ? '/' : name === 'mypage' ? '/mypage' : null;
+        if (url) history.pushState({ page: name }, '', url);
+      }
+
+      if (name === 'home') {
+        if (!state.searchMode) loadArticles(0);
+      } else if (name === 'mypage') {
+        if (!state.currentUser) {
+          openModal('login');
+          showPage('home');
+          return;
+        }
+        loadMyPage();
+      }
+    }
+
+    function resetHome() {
+      // 검색 초기화
+      state.searchMode = false;
+      state.searchKeyword = '';
+      document.querySelector('.search-input').value = '';
+
+      // 카테고리 초기화
+      state.currentCategory = null;
+      document.querySelectorAll('.cat-pill').forEach(b => b.classList.remove('active'));
+      const allBtn = document.querySelector('.cat-pill');
+      if (allBtn) allBtn.classList.add('active');
+
+      // 페이지 전환 + 기사 로드
+      state.currentPage = 0;
+      showPage('home');
+    }
+
+    function scrollToSection(id) {
+      // 홈이 아니면 먼저 홈으로 이동
+      const homePage = document.getElementById('page-home');
+      if (!homePage.classList.contains('active')) {
+        resetHome();
+        // 페이지 전환 후 스크롤
+        setTimeout(() => {
+          const el = document.getElementById(id) || document.querySelector('.' + id);
+          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 100);
+        return;
+      }
+      const el = document.getElementById(id) || document.querySelector('.' + id);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function handleMyPageClick() {
+      if (!state.currentUser) {
+        openModal('login');
+        return;
+      }
+      showPage('mypage');
+    }
+
+    /* ══════════════════════════════════════════
+       AUTH
+    ══════════════════════════════════════════ */
+    async function checkAuth() {
+      try {
+        const user = await api('/api/members/me');
+        state.currentUser = user;
+        await loadSavedArticleIds();
+      } catch {
+        state.currentUser = null;
+        state.savedArticleIds = new Set();
+      }
+      updateAuthUI();
+    }
+
+    async function loadSavedArticleIds() {
+      if (!state.currentUser) { state.savedArticleIds = new Set(); return; }
+      try {
+        const ids = await api('/api/mypage/saved-article-ids');
+        state.savedArticleIds = new Set(ids);
+      } catch {
+        state.savedArticleIds = new Set();
+      }
+    }
+
+    function updateAuthUI() {
+      const actions = document.getElementById('header-actions');
+      if (state.currentUser) {
+        actions.innerHTML = `
+          <button class="btn btn-ghost" onclick="openModal('admin')" style="font-size:12px;">+ 기사 등록</button>
+          <span style="font-size:13px;color:var(--ink);font-weight:500;">${esc(state.currentUser.nickname)}님</span>
+          <button class="btn btn-ghost" onclick="handleLogout()">로그아웃</button>
+        `;
+      } else {
+        actions.innerHTML = `
+          <button class="btn btn-ghost" onclick="openModal('login')">로그인</button>
+          <button class="btn btn-solid" onclick="openModal('signup')">회원가입</button>
+        `;
+      }
+    }
+
+    async function handleLogin() {
+      const email = document.getElementById('login-email').value.trim();
+      const password = document.getElementById('login-password').value;
+      const errorEl = document.getElementById('login-error');
+      errorEl.textContent = '';
+
+      if (!email || !password) { errorEl.textContent = '이메일과 비밀번호를 입력해주세요.'; return; }
+
+      try {
+        const user = await api('/api/members/login', {
+          method: 'POST', body: JSON.stringify({ email, password })
+        });
+        state.currentUser = user;
+        await loadSavedArticleIds();
+        updateAuthUI();
+        closeModal();
+        // 상세 화면이면 수정/삭제 버튼·저장 상태 갱신을 위해 다시 그린다
+        if (state.currentArticleId && document.getElementById('page-detail').classList.contains('active')) {
+          openDetail(state.currentArticleId, true);
+        } else {
+          loadArticles(0);
+        }
+        initSidebarInterests();
+      } catch (e) {
+        errorEl.textContent = e.message;
+      }
+    }
+
+    async function handleSignup() {
+      const nickname = document.getElementById('signup-nickname').value.trim();
+      const email = document.getElementById('signup-email').value.trim();
+      const password = document.getElementById('signup-password').value;
+      const errorEl = document.getElementById('signup-error');
+      errorEl.textContent = '';
+
+      if (!nickname || !email || !password) { errorEl.textContent = '모든 항목을 입력해주세요.'; return; }
+
+      try {
+        const user = await api('/api/members/signup', {
+          method: 'POST', body: JSON.stringify({ email, password, nickname })
+        });
+        state.currentUser = user;
+        state.savedArticleIds = new Set();
+        updateAuthUI();
+        closeModal();
+        if (state.currentArticleId && document.getElementById('page-detail').classList.contains('active')) {
+          openDetail(state.currentArticleId, true);
+        } else {
+          loadArticles(0);
+        }
+        initSidebarInterests();
+      } catch (e) {
+        errorEl.textContent = e.message;
+      }
+    }
+
+    async function handleLogout() {
+      await api('/api/members/logout', { method: 'POST' }).catch(() => {});
+      state.currentUser = null;
+      state.savedArticleIds = new Set();
+      updateAuthUI();
+      initSidebarInterests();
+      // 상세 화면이면 수정/삭제 버튼 제거를 위해 다시 그린다
+      if (state.currentArticleId && document.getElementById('page-detail').classList.contains('active')) {
+        openDetail(state.currentArticleId, true);
+      } else {
+        showPage('home');
+      }
+    }
+
+    /* ══════════════════════════════════════════
+       MODAL
+    ══════════════════════════════════════════ */
+    function openModal(type) {
+      const overlay = document.getElementById('modal-overlay');
+      overlay.classList.add('show');
+      switchModal(type);
+    }
+
+    function closeModal() {
+      document.getElementById('modal-overlay').classList.remove('show');
+      document.getElementById('login-error').textContent = '';
+      document.getElementById('signup-error').textContent = '';
+      document.getElementById('admin-error').textContent = '';
+      // 수정 모드였으면 등록 모드로 복원 + 폼 초기화
+      resetAdminModal();
+      document.getElementById('admin-category').value = '';
+      document.getElementById('admin-title').value = '';
+      document.getElementById('admin-content').value = '';
+      document.getElementById('admin-source').value = '';
+      document.getElementById('admin-url').value = '';
+      document.getElementById('admin-s1').value = '';
+      document.getElementById('admin-s2').value = '';
+      document.getElementById('admin-s3').value = '';
+      document.getElementById('admin-k1').value = '';
+      document.getElementById('admin-k2').value = '';
+      document.getElementById('admin-k3').value = '';
+    }
+
+    function switchModal(type) {
+      document.getElementById('modal-login').style.display = type === 'login' ? 'block' : 'none';
+      document.getElementById('modal-signup').style.display = type === 'signup' ? 'block' : 'none';
+      document.getElementById('modal-admin').style.display = type === 'admin' ? 'block' : 'none';
+    }
+
+    // Enter key support for modals
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        const overlay = document.getElementById('modal-overlay');
+        if (!overlay.classList.contains('show')) return;
+        // 기사 등록 모달에서는 Enter로 제출하지 않는다 (textarea가 있으므로)
+        if (document.getElementById('modal-admin').style.display !== 'none') return;
+        if (document.getElementById('modal-login').style.display !== 'none') handleLogin();
+        else handleSignup();
+      }
+    });
+
+    /* ══════════════════════════════════════════
+       ARTICLES - LOAD & RENDER
+    ══════════════════════════════════════════ */
+    async function loadArticles(page) {
+      state.currentPage = page;
+      state.searchMode = false;
+
+      let url = `/api/articles?page=${page}&size=10`;
+      if (state.currentCategory) url += `&category=${state.currentCategory}`;
+
+      try {
+        const data = await api(url);
+        state.isLastPage = data.last;
+        renderArticleCards(data.content, page > 0);
+      } catch (e) {
+        document.getElementById('news-feed').innerHTML = '<p class="loading-msg">기사를 불러올 수 없습니다.</p>';
+      }
+    }
+
+    async function searchArticles(keyword) {
+      if (!keyword.trim()) { loadArticles(0); return; }
+      state.searchMode = true;
+      state.searchKeyword = keyword.trim();
+      state.currentPage = 0;
+
+      try {
+        const data = await api(`/api/articles/search?keyword=${encodeURIComponent(keyword.trim())}&page=0&size=10`);
+        state.isLastPage = data.last;
+        renderArticleCards(data.content, false);
+      } catch (e) {
+        document.getElementById('news-feed').innerHTML = '<p class="loading-msg">검색 결과를 불러올 수 없습니다.</p>';
+      }
+    }
+
+    async function loadMoreArticles() {
+      const nextPage = state.currentPage + 1;
+      state.currentPage = nextPage;
+
+      let url;
+      if (state.searchMode) {
+        url = `/api/articles/search?keyword=${encodeURIComponent(state.searchKeyword)}&page=${nextPage}&size=10`;
+      } else {
+        url = `/api/articles?page=${nextPage}&size=10`;
+        if (state.currentCategory) url += `&category=${state.currentCategory}`;
+      }
+
+      try {
+        const data = await api(url);
+        state.isLastPage = data.last;
+        renderArticleCards(data.content, true);
+      } catch (e) { /* ignore */ }
+    }
+
+    function renderArticleCards(articles, append) {
+      const feed = document.getElementById('news-feed');
+      // Remove load-more button if exists
+      const existingBtn = feed.querySelector('.load-more-btn');
+      if (existingBtn) existingBtn.remove();
+
+      if (!append) feed.innerHTML = '';
+
+      if (articles.length === 0 && !append) {
+        feed.innerHTML = '<p class="loading-msg">표시할 기사가 없습니다.</p>';
+        return;
+      }
+
+      const imgSvg = `<svg width="36" height="36" fill="none" stroke="currentColor" stroke-width="1.2" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>`;
+
+      articles.forEach(a => {
+        const catKr = CATEGORY_KR[a.category] || a.category;
+        const isSaved = state.savedArticleIds.has(a.id);
+        const saveIcon = isSaved ? '🔖' : '☆';
+        const saveLabel = isSaved ? '저장됨' : '저장';
+        const saveClass = isSaved ? 'btn btn-solid btn-action btn-save-active' : 'btn btn-ghost btn-action';
+
+        const card = document.createElement('article');
+        card.className = 'news-card';
+        card.onclick = () => openDetail(a.id);
+        card.innerHTML = `
+          <div class="news-card-body">
+            <div class="news-card-meta">
+              <span class="cat-badge">${esc(catKr)}</span>
+              <span class="news-card-source">${formatDate(a.publishedAt)}${a.source ? ' · ' + esc(a.source) : ''}</span>
+            </div>
+            <h2 class="news-card-title">${esc(a.title)}</h2>
+            ${a.summaryPreview ? `<p class="news-card-summary">✦ ${esc(a.summaryPreview)}</p>` : ''}
+            <div class="news-card-actions">
+              <button class="btn btn-solid btn-action" onclick="event.stopPropagation(); openDetail(${a.id})">전체 읽기</button>
+              <button class="${saveClass}" data-save-btn="${a.id}" onclick="event.stopPropagation(); toggleSave(${a.id})">${saveIcon} ${saveLabel}</button>
+            </div>
+          </div>
+          <div class="news-card-img">${a.thumbnailUrl ? `<img src="${escUrl(a.thumbnailUrl)}" alt="" style="width:100%;height:100%;object-fit:cover;">` : imgSvg}</div>
+        `;
+        feed.appendChild(card);
+      });
+
+      // Add load-more button if not last page
+      if (!state.isLastPage) {
+        const btn = document.createElement('button');
+        btn.className = 'btn btn-ghost btn-md load-more-btn';
+        btn.textContent = '더보기';
+        btn.style.cssText = 'width:100%;margin-top:16px;justify-content:center;';
+        btn.onclick = loadMoreArticles;
+        feed.appendChild(btn);
+      }
+    }
+
+    /* ══════════════════════════════════════════
+       ARTICLE DETAIL
+    ══════════════════════════════════════════ */
+    async function openDetail(id, skipHistory) {
+      state.currentArticleId = id;
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.getElementById('page-detail').classList.add('active');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      if (!skipHistory) history.pushState({ page: 'detail', articleId: id }, '', '/detail/' + id);
+
+      const detailEl = document.getElementById('article-detail');
+      detailEl.innerHTML = '<div class="loading-msg">기사를 불러오는 중...</div>';
+
+      try {
+        const a = await api(`/api/articles/${id}`);
+        renderArticleDetail(a);
+        // 읽기 기록 저장 (로그인 시)
+        if (state.currentUser) {
+          api(`/api/mypage/read-history/${id}`, { method: 'POST' }).catch(() => {});
+        }
+        // 관련 뉴스 로드
+        loadRelatedNews(id);
+      } catch (e) {
+        detailEl.innerHTML = '<p class="loading-msg">기사를 불러올 수 없습니다.</p>';
+      }
+    }
+
+    function renderArticleDetail(a) {
+      const catKr = CATEGORY_KR[a.category] || a.category;
+      const isSaved = state.savedArticleIds.has(a.id);
+      const saveIcon = isSaved ? '🔖' : '☆';
+      const saveLabel = isSaved ? '저장됨' : '저장하기';
+      const saveClass = isSaved ? 'btn btn-solid btn-md btn-save-active' : 'btn btn-solid btn-md';
+
+      // Breadcrumb
+      document.getElementById('detail-breadcrumb').innerHTML = `
+        <button onclick="showPage('home')">홈</button>
+        <span class="sep">/</span>
+        <button onclick="showPage('home')">${esc(catKr)}</button>
+        <span class="sep">/</span>
+        <span class="current">${esc(a.title.length > 30 ? a.title.substring(0, 30) + '...' : a.title)}</span>
+      `;
+
+      // Article content
+      const imgSvg = `<svg width="48" height="48" fill="none" stroke="currentColor" stroke-width="1" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>`;
+
+      let summaryHtml = '';
+      if (a.summary) {
+        summaryHtml = `
+          <div class="ai-box">
+            <div class="ai-box-header">
+              <span class="ai-badge-lg">✦ AI 요약</span>
+              <span class="ai-box-hint">이 기사의 핵심을 3줄로 정리했습니다</span>
+            </div>
+            <p class="ai-box-text">
+              ${esc(a.summary.summaryLine1)}<br/>
+              ${esc(a.summary.summaryLine2)}<br/>
+              ${esc(a.summary.summaryLine3)}
+            </p>
+            <hr class="ai-box-divider"/>
+            <p class="ai-key-label">핵심 포인트</p>
+            <ul class="ai-key-list">
+              <li class="ai-key-item"><span class="ai-key-dot"></span><span class="ai-key-text">${esc(a.summary.keyPoint1)}</span></li>
+              <li class="ai-key-item"><span class="ai-key-dot"></span><span class="ai-key-text">${esc(a.summary.keyPoint2)}</span></li>
+              <li class="ai-key-item"><span class="ai-key-dot"></span><span class="ai-key-text">${esc(a.summary.keyPoint3)}</span></li>
+            </ul>
+          </div>
+        `;
+      }
+
+      const bodyParagraphs = a.content
+        ? a.content.split('\n').filter(p => p.trim()).map(p => `<p>${esc(p)}</p>`).join('')
+        : '<p class="muted">본문이 없습니다.</p>';
+
+      // 원문보기: 실제 URL일 때만 표시
+      let originalBtnHtml = '';
+      if (isRealUrl(a.originalUrl)) {
+        originalBtnHtml = `<a class="btn btn-ghost btn-md" href="${escUrl(a.originalUrl)}" target="_blank" rel="noopener">원문 기사 보기 →</a>`;
+      }
+
+      const detailEl = document.getElementById('article-detail');
+      detailEl.innerHTML = `
+        <div class="article-meta">
+          <span class="cat-badge">${esc(catKr)}</span>
+          <span class="article-source">${formatDateFull(a.publishedAt)}</span>
+          ${a.source ? `<span class="article-source">· ${esc(a.source)}</span>` : ''}
+        </div>
+        <h1 class="article-title">${esc(a.title)}</h1>
+        <div class="article-img">
+          ${a.thumbnailUrl ? `<img src="${escUrl(a.thumbnailUrl)}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:var(--radius-xl);">` : imgSvg}
+        </div>
+        ${summaryHtml}
+        <div class="article-body">${bodyParagraphs}</div>
+        <div class="article-actions">
+          <button class="${saveClass}" data-save-btn="${a.id}" onclick="toggleSave(${a.id})">${saveIcon} ${saveLabel}</button>
+          ${originalBtnHtml}
+          ${state.currentUser && a.writerId === state.currentUser.id ? `
+            <button class="btn btn-ghost btn-md" onclick="openEditArticle(${a.id})">수정</button>
+            <button class="btn btn-ghost btn-md" style="color:var(--danger,#ef4444);" onclick="confirmDeleteArticle(${a.id})">삭제</button>
+          ` : ''}
+        </div>
+        ${a.writerNickname ? `<p style="margin-top:8px;font-size:13px;color:#64748b;">작성자: ${esc(a.writerNickname)}</p>` : ''}
+      `;
+    }
+
+    async function loadRelatedNews(articleId) {
+      try {
+        const related = await api(`/api/articles/${articleId}/related`);
+        const container = document.getElementById('related-news');
+        const imgSvg = `<svg width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.2" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>`;
+
+        container.innerHTML = '<h3 class="related-title">관련 뉴스</h3>';
+        if (related.length === 0) {
+          container.innerHTML += '<p class="loading-msg" style="font-size:13px;">관련 뉴스가 없습니다.</p>';
+          return;
+        }
+        related.forEach(a => {
+          const catKr = CATEGORY_KR[a.category] || a.category;
+          container.innerHTML += `
+            <div class="related-item" onclick="openDetail(${a.id})">
+              <div class="related-img">${a.thumbnailUrl ? `<img src="${escUrl(a.thumbnailUrl)}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:var(--radius-md);">` : imgSvg}</div>
+              <span class="cat-badge">${esc(catKr)}</span>
+              <p class="related-item-title">${esc(a.title)}</p>
+              ${a.summaryPreview ? `<p class="related-item-summary">✦ ${esc(a.summaryPreview)}</p>` : ''}
+              <span class="related-item-date">${formatDate(a.publishedAt)}${a.source ? ' · ' + esc(a.source) : ''}</span>
+            </div>
+          `;
+        });
+      } catch { /* ignore */ }
+    }
+
+    /* ══════════════════════════════════════════
+       SAVE / UNSAVE
+    ══════════════════════════════════════════ */
+    /* ══════════════════════════════════════════
+       EDIT / DELETE ARTICLE (작성자 전용)
+    ══════════════════════════════════════════ */
+    /**
+     * 수정 모달을 연다.
+     * 기존 등록 모달(modal-admin)의 폼을 재활용하여 값을 채운 뒤,
+     * 제출 버튼만 수정용으로 바꾼다.
+     */
+    let editingArticleId = null;
+
+    async function openEditArticle(articleId) {
+      try {
+        const a = await api(`/api/articles/${articleId}`);
+        editingArticleId = articleId;
+
+        // 등록 폼에 기존 값을 채운다
+        document.getElementById('admin-category').value = a.category;
+        document.getElementById('admin-title').value = a.title || '';
+        document.getElementById('admin-source').value = a.source || '';
+        document.getElementById('admin-url').value = a.originalUrl || '';
+        document.getElementById('admin-content').value = a.content || '';
+        document.getElementById('admin-s1').value = a.summary ? a.summary.summaryLine1 || '' : '';
+        document.getElementById('admin-s2').value = a.summary ? a.summary.summaryLine2 || '' : '';
+        document.getElementById('admin-s3').value = a.summary ? a.summary.summaryLine3 || '' : '';
+        document.getElementById('admin-k1').value = a.summary ? a.summary.keyPoint1 || '' : '';
+        document.getElementById('admin-k2').value = a.summary ? a.summary.keyPoint2 || '' : '';
+        document.getElementById('admin-k3').value = a.summary ? a.summary.keyPoint3 || '' : '';
+
+        // 모달 제목과 버튼을 수정 모드로 바꾼다
+        document.querySelector('#modal-admin .modal-title').textContent = '기사 수정';
+        document.querySelector('#modal-admin .modal-submit').textContent = '수정하기';
+        document.querySelector('#modal-admin .modal-submit').setAttribute('onclick', 'handleAdminSubmit()');
+
+        openModal('admin');
+      } catch { alert('기사를 불러올 수 없습니다.'); }
+    }
+
+    /**
+     * 수정 모달을 닫을 때 등록 모드로 복원한다.
+     */
+    function resetAdminModal() {
+      editingArticleId = null;
+      document.querySelector('#modal-admin .modal-title').textContent = '기사 등록';
+      document.querySelector('#modal-admin .modal-submit').textContent = '등록하기';
+    }
+
+    async function confirmDeleteArticle(articleId) {
+      if (!confirm('정말 이 기사를 삭제하시겠습니까?')) return;
+      try {
+        await api(`/api/articles/${articleId}`, { method: 'DELETE' });
+        // 검색 모드였으면 초기화해서 홈에서 목록이 다시 로드되게 한다
+        state.searchMode = false;
+        state.searchKeyword = '';
+        document.querySelector('.search-input').value = '';
+        showPage('home');
+      } catch (e) { alert(e.message || '삭제에 실패했습니다.'); }
+    }
+
+    async function toggleSave(articleId) {
+      if (!state.currentUser) { openModal('login'); return; }
+
+      const isSaved = state.savedArticleIds.has(articleId);
+
+      try {
+        if (isSaved) {
+          await api(`/api/mypage/saved-articles/${articleId}`, { method: 'DELETE' });
+          state.savedArticleIds.delete(articleId);
+        } else {
+          await api(`/api/mypage/saved-articles/${articleId}`, { method: 'POST' });
+          state.savedArticleIds.add(articleId);
+        }
+        updateSaveButtons(articleId);
+      } catch (e) {
+        // 이미 저장/해제 상태가 서버와 다른 경우 동기화
+        await loadSavedArticleIds();
+        updateSaveButtons(articleId);
+      }
+    }
+
+    function updateSaveButtons(articleId) {
+      const isSaved = state.savedArticleIds.has(articleId);
+      const saveIcon = isSaved ? '🔖' : '☆';
+      const saveLabel = isSaved ? '저장됨' : '저장';
+
+      document.querySelectorAll(`[data-save-btn="${articleId}"]`).forEach(btn => {
+        if (isSaved) {
+          btn.className = btn.className.includes('btn-md')
+            ? 'btn btn-solid btn-md btn-save-active'
+            : 'btn btn-solid btn-action btn-save-active';
+          btn.innerHTML = `${saveIcon} ${btn.className.includes('btn-md') ? '저장됨' : '저장됨'}`;
+        } else {
+          btn.className = btn.className.includes('btn-md')
+            ? 'btn btn-solid btn-md'
+            : 'btn btn-ghost btn-action';
+          btn.innerHTML = `${saveIcon} ${btn.className.includes('btn-md') ? '저장하기' : '저장'}`;
+        }
+      });
+    }
+
+    /* ══════════════════════════════════════════
+       CATEGORY TABS
+    ══════════════════════════════════════════ */
+    function setCategory(el) {
+      document.querySelectorAll('.cat-pill').forEach(b => b.classList.remove('active'));
+      el.classList.add('active');
+      state.currentCategory = CATEGORY_MAP[el.textContent.trim()] || null;
+      state.searchMode = false;
+      loadArticles(0);
+    }
+
+    /* ══════════════════════════════════════════
+       SEARCH
+    ══════════════════════════════════════════ */
+    document.querySelector('.search-btn').addEventListener('click', () => {
+      searchArticles(document.querySelector('.search-input').value);
+    });
+    document.querySelector('.search-input').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') searchArticles(e.target.value);
+    });
+
+    /* ══════════════════════════════════════════
+       TRENDING & BRIEFING (사이드바)
+    ══════════════════════════════════════════ */
+
+    /**
+     * 트렌딩 기사를 불러온다.
+     * 서버에서 조회수(viewCount) 기준으로 정렬해서 내려준다.
+     */
+    async function loadTrending() {
+      try {
+        const articles = await api('/api/articles/trending');
+        const list = document.getElementById('trending-list');
+        list.innerHTML = '';
+        if (articles.length === 0) {
+          list.innerHTML = '<li class="trending-item"><span class="trending-text" style="color:var(--muted);">트렌딩 뉴스가 없습니다.</span></li>';
+          return;
+        }
+        articles.forEach((a, i) => {
+          const badges = ['🔥', '↑', '', 'NEW', ''];
+          const badgeClass = ['trending-hot', 'trending-up', '', 'trending-new', ''];
+          const badgeHtml = badges[i] ? `<span class="trending-badge ${badgeClass[i]}">${badges[i]}</span>` : '';
+          list.innerHTML += `
+            <li class="trending-item" onclick="openDetail(${a.id})" style="cursor:pointer;">
+              <span class="trending-num">${String(i + 1).padStart(2, '0')}</span>
+              <span class="trending-text">${esc(a.title.length > 20 ? a.title.substring(0, 20) + '…' : a.title)}</span>
+              ${badgeHtml}
+            </li>
+          `;
+        });
+      } catch { /* ignore */ }
+    }
+
+    /**
+     * 인기 검색어를 불러온다.
+     * 서버에서 최근 7일간의 실제 검색 로그를 집계해서 내려준다.
+     * 검색 로그가 아직 없으면 트렌딩 기사 제목에서 키워드를 추출해 대체한다.
+     */
+    async function loadPopularKeywords() {
+      const keywordsEl = document.getElementById('trending-keywords');
+      try {
+        const keywords = await api('/api/articles/popular-keywords');
+
+        if (keywords.length > 0) {
+          // 실제 검색 로그 기반 인기 검색어
+          keywordsEl.innerHTML = '<span class="label">인기 검색어:</span>';
+          keywords.slice(0, 5).forEach(kw => {
+            const btn = document.createElement('button');
+            btn.className = 'trending-keyword';
+            btn.textContent = kw;
+            btn.onclick = () => {
+              document.querySelector('.search-input').value = kw;
+              searchArticles(kw);
+            };
+            keywordsEl.appendChild(btn);
+          });
+        } else {
+          // 검색 로그가 없으면 트렌딩 기사 제목에서 키워드 추출 (폴백)
+          const trending = await api('/api/articles/trending');
+          keywordsEl.innerHTML = '<span class="label">추천 검색어:</span>';
+          trending.slice(0, 4).forEach(a => {
+            const words = a.title.replace(/[…,·"]/g, '').split(/\s+/);
+            const keyword = words.slice(0, 2).join(' ');
+            const btn = document.createElement('button');
+            btn.className = 'trending-keyword';
+            btn.textContent = keyword;
+            btn.onclick = () => {
+              document.querySelector('.search-input').value = keyword;
+              searchArticles(keyword);
+            };
+            keywordsEl.appendChild(btn);
+          });
+        }
+      } catch { /* ignore */ }
+    }
+
+    async function loadBriefing() {
+      try {
+        const data = await api('/api/articles/briefing');
+        document.getElementById('briefing-text').textContent = data.text;
+        document.getElementById('briefing-time').textContent = formatTime(data.generatedAt) + ' 기준';
+      } catch { /* ignore */ }
+    }
+
+    /* ══════════════════════════════════════════
+       기사 등록
+    ══════════════════════════════════════════ */
+
+    /**
+     * 기사 등록/수정 폼 제출 처리
+     * editingArticleId가 있으면 PATCH(수정), 없으면 POST(등록).
+     */
+    async function handleAdminSubmit() {
+      const errorEl = document.getElementById('admin-error');
+      errorEl.textContent = '';
+
+      const category = document.getElementById('admin-category').value;
+      const title = document.getElementById('admin-title').value.trim();
+      const content = document.getElementById('admin-content').value.trim();
+
+      if (!category || !title || !content) {
+        errorEl.textContent = '카테고리, 제목, 본문은 필수입니다.';
+        return;
+      }
+
+      // 수정 모드: 빈 값을 ""로 보내면 백엔드가 해당 필드를 삭제한다
+      // 등록 모드: 빈 값을 null로 보내면 백엔드가 기본값을 넣는다
+      const isEdit = !!editingArticleId;
+      const optVal = (id) => {
+        const v = document.getElementById(id).value.trim();
+        return isEdit ? v : (v || null);
+      };
+
+      const body = {
+        category,
+        title,
+        content,
+        source: optVal('admin-source'),
+        originalUrl: optVal('admin-url'),
+        summaryLine1: optVal('admin-s1'),
+        summaryLine2: optVal('admin-s2'),
+        summaryLine3: optVal('admin-s3'),
+        keyPoint1: optVal('admin-k1'),
+        keyPoint2: optVal('admin-k2'),
+        keyPoint3: optVal('admin-k3')
+      };
+
+      try {
+        let resultId;
+        if (isEdit) {
+          // 수정 모드
+          await api(`/api/articles/${editingArticleId}`, {
+            method: 'PATCH',
+            body: JSON.stringify(body)
+          });
+          resultId = editingArticleId;
+        } else {
+          // 등록 모드
+          const created = await api('/api/articles', {
+            method: 'POST',
+            body: JSON.stringify(body)
+          });
+          resultId = created.id;
+        }
+        closeModal();
+        openDetail(resultId);
+      } catch (e) {
+        errorEl.textContent = e.message;
+      }
+    }
+
+    /* ══════════════════════════════════════════
+       MYPAGE
+    ══════════════════════════════════════════ */
+    async function loadMyPage() {
+      try {
+        const [data, history] = await Promise.all([
+          api('/api/mypage'),
+          api('/api/mypage/read-history')
+        ]);
+        renderMyPage(data, history);
+      } catch (e) {
+        if (e.message.includes('로그인')) {
+          openModal('login');
+          showPage('home');
+        } else {
+          document.getElementById('mypage-main').innerHTML =
+            '<p class="loading-msg" style="text-align:center;padding:40px 0;">마이페이지를 불러올 수 없습니다. 잠시 후 다시 시도해주세요.</p>';
+        }
+      }
+    }
+
+    function renderMyPage(data, history) {
+      // Profile
+      document.getElementById('profile-initial').textContent = data.nickname ? data.nickname.charAt(0) : '?';
+      document.getElementById('profile-name').textContent = data.nickname;
+      document.getElementById('profile-email').textContent = data.email;
+
+      // Account settings
+      document.getElementById('settings-nickname-input').value = data.nickname;
+      document.getElementById('settings-email').textContent = '이메일: ' + data.email;
+
+      // Stats
+      document.getElementById('stat-read').textContent = data.readArticleCount;
+      document.getElementById('stat-saved').textContent = data.savedArticles ? data.savedArticles.length : 0;
+      document.getElementById('stat-streak').textContent = data.streak + '일';
+
+      // Interests
+      const interestsEl = document.getElementById('mypage-interests');
+      interestsEl.innerHTML = '';
+      const allCats = ['POLITICS', 'ECONOMY', 'SOCIETY', 'IT_SCIENCE', 'WORLD', 'SPORTS', 'ENTERTAINMENT'];
+      allCats.forEach(cat => {
+        const isOn = data.interests && data.interests.includes(cat);
+        const btn = document.createElement('button');
+        btn.className = `interest-btn ${isOn ? 'on' : 'off'}`;
+        btn.textContent = CATEGORY_KR[cat];
+        btn.onclick = () => toggleInterest(cat, btn);
+        interestsEl.appendChild(btn);
+      });
+
+      // Saved articles
+      const savedEl = document.getElementById('mypage-saved');
+      savedEl.innerHTML = '';
+      if (!data.savedArticles || data.savedArticles.length === 0) {
+        savedEl.innerHTML = '<p class="loading-msg" style="grid-column:1/-1;">저장한 기사가 없습니다.</p>';
+      } else {
+        data.savedArticles.forEach(a => {
+          const catKr = CATEGORY_KR[a.category] || a.category;
+          const card = document.createElement('div');
+          card.className = 'saved-card';
+          card.onclick = () => openDetail(a.id);
+          card.innerHTML = `
+            <span class="cat-badge">${esc(catKr)}</span>
+            <p class="saved-card-title">${esc(a.title)}</p>
+            <div class="saved-card-footer">
+              <span class="saved-card-date">${formatDate(a.publishedAt)}</span>
+              <button class="saved-delete-btn" onclick="event.stopPropagation(); removeSaved(${a.id})">🗑</button>
+            </div>
+          `;
+          savedEl.appendChild(card);
+        });
+      }
+
+      // Read history
+      const historyEl = document.getElementById('mypage-history');
+      historyEl.innerHTML = '';
+      if (!history || history.length === 0) {
+        historyEl.innerHTML = '<p class="loading-msg" style="grid-column:1/-1;">읽은 기사가 없습니다.</p>';
+      } else {
+        history.forEach(h => {
+          const catKr = CATEGORY_KR[h.category] || h.category;
+          const card = document.createElement('div');
+          card.className = 'saved-card';
+          card.onclick = () => openDetail(h.articleId);
+          card.innerHTML = `
+            <span class="cat-badge">${esc(catKr)}</span>
+            <p class="saved-card-title">${esc(h.title)}</p>
+            <div class="saved-card-footer">
+              <span class="saved-card-date">${formatDate(h.readAt)} 읽음</span>
+            </div>
+          `;
+          historyEl.appendChild(card);
+        });
+      }
+    }
+
+    async function toggleInterest(category, btn) {
+      if (!state.currentUser) { openModal('login'); return; }
+      const isOn = btn.classList.contains('on');
+      try {
+        if (isOn) {
+          await api(`/api/mypage/interests/${category}`, { method: 'DELETE' });
+          btn.classList.remove('on');
+          btn.classList.add('off');
+        } else {
+          await api(`/api/mypage/interests/${category}`, { method: 'POST' });
+          btn.classList.remove('off');
+          btn.classList.add('on');
+        }
+        // 사이드바 관심분야도 동기화
+        syncSidebarInterest(category, !isOn);
+      } catch (e) {
+        alert(e.message);
+      }
+    }
+
+    function syncSidebarInterest(category, isOn) {
+      const sidebar = document.getElementById('sidebar-interests');
+      if (!sidebar) return;
+      sidebar.querySelectorAll('.interest-btn').forEach(btn => {
+        const cat = Object.entries(CATEGORY_KR).find(([k, v]) => v === btn.textContent.trim());
+        if (cat && cat[0] === category) {
+          btn.classList.toggle('on', isOn);
+          btn.classList.toggle('off', !isOn);
+        }
+      });
+    }
+
+    async function removeSaved(articleId) {
+      try {
+        await api(`/api/mypage/saved-articles/${articleId}`, { method: 'DELETE' });
+        state.savedArticleIds.delete(articleId);
+        loadMyPage();
+      } catch (e) {
+        alert(e.message);
+      }
+    }
+
+    /* ══════════════════════════════════════════
+       ACCOUNT SETTINGS (닉네임/비밀번호 변경)
+    ══════════════════════════════════════════ */
+    async function handleUpdateNickname() {
+      const nickname = document.getElementById('settings-nickname-input').value.trim();
+      const errorEl = document.getElementById('nickname-error');
+      const successEl = document.getElementById('nickname-success');
+      errorEl.textContent = '';
+      successEl.textContent = '';
+
+      if (!nickname) { errorEl.textContent = '닉네임을 입력해주세요.'; return; }
+
+      try {
+        const user = await api('/api/mypage/nickname', {
+          method: 'PATCH', body: JSON.stringify({ nickname })
+        });
+        state.currentUser = user;
+        updateAuthUI();
+        document.getElementById('profile-name').textContent = user.nickname;
+        document.getElementById('profile-initial').textContent = user.nickname.charAt(0);
+        successEl.textContent = '닉네임이 변경되었습니다.';
+      } catch (e) {
+        errorEl.textContent = e.message;
+      }
+    }
+
+    async function handleUpdatePassword() {
+      const currentPassword = document.getElementById('settings-current-pw').value;
+      const newPassword = document.getElementById('settings-new-pw').value;
+      const errorEl = document.getElementById('password-error');
+      const successEl = document.getElementById('password-success');
+      errorEl.textContent = '';
+      successEl.textContent = '';
+
+      if (!currentPassword || !newPassword) { errorEl.textContent = '모든 항목을 입력해주세요.'; return; }
+      if (newPassword.length < 4) { errorEl.textContent = '새 비밀번호는 4자 이상이어야 합니다.'; return; }
+
+      try {
+        await api('/api/mypage/password', {
+          method: 'PATCH', body: JSON.stringify({ currentPassword, newPassword })
+        });
+        document.getElementById('settings-current-pw').value = '';
+        document.getElementById('settings-new-pw').value = '';
+        successEl.textContent = '비밀번호가 변경되었습니다.';
+      } catch (e) {
+        errorEl.textContent = e.message;
+      }
+    }
+
+    /* ══════════════════════════════════════════
+       SIDEBAR INTERESTS (홈 사이드바)
+    ══════════════════════════════════════════ */
+    function initSidebarInterests() {
+      const container = document.getElementById('sidebar-interests');
+      if (!container) return;
+      container.innerHTML = '';
+      const allCats = ['POLITICS', 'ECONOMY', 'SOCIETY', 'IT_SCIENCE', 'WORLD', 'SPORTS', 'ENTERTAINMENT'];
+      allCats.forEach(cat => {
+        const btn = document.createElement('button');
+        btn.className = 'interest-btn off';
+        btn.textContent = CATEGORY_KR[cat];
+        btn.onclick = () => toggleInterest(cat, btn);
+        container.appendChild(btn);
+      });
+      // Load user interests if logged in
+      if (state.currentUser) {
+        api('/api/mypage').then(data => {
+          if (data.interests) {
+            container.querySelectorAll('.interest-btn').forEach(btn => {
+              const cat = Object.entries(CATEGORY_KR).find(([k, v]) => v === btn.textContent.trim());
+              if (cat && data.interests.includes(cat[0])) {
+                btn.classList.remove('off');
+                btn.classList.add('on');
+              }
+            });
+          }
+        }).catch(() => {});
+      }
+    }
+
+    /* ══════════════════════════════════════════
+       SIDE NAV (마이페이지)
+    ══════════════════════════════════════════ */
+    document.querySelectorAll('.side-nav-item').forEach(item => {
+      item.addEventListener('click', () => {
+        document.querySelectorAll('.side-nav-item').forEach(i => i.classList.remove('active'));
+        item.classList.add('active');
+
+        const section = item.dataset.section;
+        // 해당 섹션으로 스크롤
+        const sectionEl = document.getElementById('section-' + section);
+        if (sectionEl) {
+          sectionEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      });
+    });
+
+    /* ══════════════════════════════════════════
+       BROWSER BACK/FORWARD
+    ══════════════════════════════════════════ */
+    window.addEventListener('popstate', (e) => {
+      const s = e.state;
+      if (s && s.page === 'detail' && s.articleId) {
+        openDetail(s.articleId, true);
+      } else if (s && s.page) {
+        showPage(s.page, true);
+      } else {
+        showPage('home', true);
+      }
+    });
+
+    /* ══════════════════════════════════════════
+       INIT
+    ══════════════════════════════════════════ */
+    (async function init() {
+      await checkAuth();
+      initSidebarInterests();
+      loadTrending();
+      loadPopularKeywords();
+      loadBriefing();
+
+      const initialPage = document.body.dataset.initialPage || 'home';
+      const initialArticleId = document.body.dataset.initialArticleId;
+
+      if (initialPage === 'detail' && initialArticleId) {
+        openDetail(Number(initialArticleId), true);
+      } else if (initialPage !== 'home') {
+        showPage(initialPage, true);
+      } else {
+        loadArticles(0);
+      }
+
+      // 현재 URL 상태를 history에 기록 (replaceState)
+      if (initialPage === 'detail' && initialArticleId) {
+        history.replaceState({ page: 'detail', articleId: Number(initialArticleId) }, '', '/detail/' + initialArticleId);
+      } else if (initialPage === 'mypage') {
+        history.replaceState({ page: 'mypage' }, '', '/mypage');
+      } else {
+        history.replaceState({ page: 'home' }, '', '/');
+      }
+    })();
+  </script>
+</body>
+
+</html>

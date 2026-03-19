@@ -28,9 +28,14 @@ dependencies {
     // 웹 요청 처리와 REST API 구성을 위한 기본 스타터
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.springframework.boot:spring-boot-starter-webmvc'
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+    implementation 'org.springframework.boot:spring-boot-starter-mustache'
 
     // 비밀번호 암호화(BCrypt)를 위한 모듈
     implementation 'org.springframework.security:spring-security-crypto'
+
+    // Swagger API 문서 자동 생성 (Swagger UI: /swagger-ui.html)
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.6'
 
     // Lombok은 반복되는 getter/builder/생성자 코드를 줄여준다.
     compileOnly 'org.projectlombok:lombok'
@@ -41,6 +46,7 @@ dependencies {
     annotationProcessor 'org.projectlombok:lombok'
 
     // 테스트 시에는 가벼운 H2 메모리 DB를 사용해서 MySQL 의존도를 줄인다.
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework.boot:spring-boot-starter-data-jpa-test'
     testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
     testRuntimeOnly 'com.h2database:h2'

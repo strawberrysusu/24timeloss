@@ -5,7 +5,32 @@
       "Bash(curl -s http://localhost:8080/api/articles)",
       "Bash(curl -s http://localhost:8080/api/articles/1)",
       "Bash(curl:*)",
-      "Bash(xargs grep:*)"
+      "Bash(xargs grep:*)",
+      "Bash(JAVA_HOME=\"/c/Program Files/Eclipse Adoptium/jdk-17.0.17.10-hotspot\" ./gradlew compileJava:*)",
+      "Bash(mysql:*)",
+      "Bash(\"C:/Program Files/MySQL/MySQL Server 8.0/bin/mysql.exe\" -u root -p1234 -e \"CREATE DATABASE IF NOT EXISTS newspick CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;\")",
+      "Bash(\"C:/Program Files/MySQL/MySQL Server 8.4/bin/mysql.exe\" -u root -p1234 -e \"CREATE DATABASE IF NOT EXISTS newspick CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;\")",
+      "Bash(./gradlew build:*)",
+      "Bash(where java:*)",
+      "Bash(java -version)",
+      "Bash(JAVA_HOME=\"C:/Program Files/Eclipse Adoptium/jdk-17.0.17.10-hotspot\" ./gradlew build -x test)",
+      "Bash(JAVA_HOME=\"C:/Program Files/Eclipse Adoptium/jdk-17.0.17.10-hotspot\" ./gradlew bootRun)",
+      "Bash(python3 -m json.tool)",
+      "Bash(\"C:/Program Files/MySQL/MySQL Server 8.0/bin/mysql.exe\" -u root -p1234 -e \"DROP DATABASE IF EXISTS newspick; CREATE DATABASE newspick CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;\" 2>&1)",
+      "Bash(pkill -f \"bootRun\")",
+      "Bash(pkill -f \"newssummaryproject\")",
+      "Bash(taskkill //F //IM java.exe)",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); [print\\(f''''  [{a[\"\"category\"\"]}] {a[\"\"title\"\"]} | summary: {a[\"\"summaryPreview\"\"][:40] if a[\"\"summaryPreview\"\"] else \"\"null\"\"}''''\\) for a in d[''''content'''']]; print\\(f''''  totalElements={d[\"\"totalElements\"\"]}, totalPages={d[\"\"totalPages\"\"]}''''\\)\")",
+      "Bash(./gradlew test:*)",
+      "Bash(./gradlew dependencies:*)",
+      "Bash(xargs -I {} jar tf {})",
+      "Bash(jar tf:*)",
+      "Bash(xargs cat:*)",
+      "Bash(find . -name \"TEST-*.xml\" -path \"*/test-results/*\" -exec grep -l \"tests=\" {})",
+      "Bash(find . -name \"TEST-*.xml\" -path \"*/test-results/*\" -exec grep -o 'tests=\"\"\"\"[0-9]*\"\"\"\"' {})",
+      "Bash(find . -not -path */build/* -not -path */.gradle/* -not -path */.idea/* -not -path */.git/*)",
+      "Bash(git:*)",
+      "Bash(./gradlew clean:*)"
     ]
   }
 }

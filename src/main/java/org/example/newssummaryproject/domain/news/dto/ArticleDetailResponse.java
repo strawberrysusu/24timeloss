@@ -19,6 +19,8 @@ public record ArticleDetailResponse(
         String thumbnailUrl,
         String content,
         LocalDateTime publishedAt,
+        Long writerId,
+        String writerNickname,
         SummaryResponse summary
 ) {
     public static ArticleDetailResponse from(Article article, ArticleSummary summary) {
@@ -31,6 +33,8 @@ public record ArticleDetailResponse(
                 article.getThumbnailUrl(),
                 article.getContent(),
                 article.getPublishedAt(),
+                article.getWriter() != null ? article.getWriter().getId() : null,
+                article.getWriter() != null ? article.getWriter().getNickname() : null,
                 summary != null ? SummaryResponse.from(summary) : null
         );
     }
