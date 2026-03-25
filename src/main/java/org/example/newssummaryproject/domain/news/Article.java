@@ -64,6 +64,11 @@ public class Article extends BaseTimeEntity {
     @Column(length = 500)
     private String thumbnailUrl;
 
+    // 영상 기사인 경우 iframe으로 재생할 수 있는 URL을 저장한다
+    // 예: "https://tv.naver.com/embed/96436388"
+    @Column(length = 500)
+    private String videoEmbedUrl;
+
     // columnDefinition = "TEXT": 일반 VARCHAR보다 훨씬 긴 텍스트를 저장할 수 있다.
     // 기사 본문은 수천 자가 될 수 있으므로 TEXT 타입을 사용한다.
     @Column(columnDefinition = "TEXT")
@@ -88,12 +93,13 @@ public class Article extends BaseTimeEntity {
 
     @Builder
     private Article(Category category, String title, String originalUrl, String source, String thumbnailUrl,
-                    String content, LocalDateTime publishedAt, Member writer) {
+                    String videoEmbedUrl, String content, LocalDateTime publishedAt, Member writer) {
         this.category = category;
         this.title = title;
         this.originalUrl = originalUrl;
         this.source = source;
         this.thumbnailUrl = thumbnailUrl;
+        this.videoEmbedUrl = videoEmbedUrl;
         this.content = content;
         this.publishedAt = publishedAt;
         this.writer = writer;

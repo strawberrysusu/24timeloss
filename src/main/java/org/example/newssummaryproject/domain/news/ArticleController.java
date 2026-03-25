@@ -48,6 +48,7 @@ import java.util.Map;
 public class ArticleController {
 
     private final ArticleService articleService;
+    private final ArticleExtractService articleExtractService;
 
     /**
      * 기사 목록 조회 (페이지네이션) — GET /api/articles?category=IT_SCIENCE&page=0&size=10
@@ -146,6 +147,26 @@ public class ArticleController {
     @GetMapping("/popular-keywords")
     public ResponseEntity<List<String>> getPopularKeywords() {
         return ResponseEntity.ok(articleService.getPopularKeywords());
+    }
+
+    // ── URL에서 기사 자동 추출 (로그인 필수) ──
+
+    /**
+     * 뉴스 URL에서 기사 정보를 자동 추출한다 — POST /api/articles/extract
+     *
+     * 흐름: URL 입력 → HTML 다운로드 → 메타 태그 파싱 → 제목/출처/이미지/본문 반환
+     * 프론트에서는 이 결과를 등록 폼에 자동으로 채워준다.
+     */
+    @PostMapping("/extract")
+    public ResponseEntity<ArticleExtractService.ExtractResult> extractFromUrl(
+            @RequestBody Map<String, String> request,
+            HttpSession session) {
+        MemberController.getLoginMemberId(session);  // 로그인 확인
+        String url = request.get("url");
+        if (url == null || url.isBlank()) {
+            throw new IllegalArgumentException("URL을 입력해주세요.");
+        }
+        return ResponseEntity.ok(articleExtractService.extract(url.trim()));
     }
 
     // ── AI 요약 생성 (로그인 필수) ──

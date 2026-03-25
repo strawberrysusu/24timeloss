@@ -57,14 +57,17 @@ public class AiSummaryService {
 
     /**
      * 기사 본문을 받아서 요약 결과를 반환한다.
-     * API 키가 없으면 가짜 요약을 반환한다 (개발 편의).
+     *
+     * mock 모드가 켜져 있으면 API 키 유무와 관계없이 가짜 요약을 반환한다.
+     * 이렇게 해야 테스트에서 환경변수에 API 키가 설정되어 있어도 실제 AI를 호출하지 않는다.
      */
     public SummaryResult summarize(String content) {
+        // mock 모드는 항상 최우선 — 테스트 환경에서 실제 API 호출을 방지한다
+        if (mockEnabled) {
+            log.info("AI mock 모드가 활성화되어 가짜 요약을 반환합니다.");
+            return fakeSummarize();
+        }
         if (apiKey == null || apiKey.isBlank()) {
-            if (mockEnabled) {
-                log.info("AI mock 모드가 활성화되어 가짜 요약을 반환합니다.");
-                return fakeSummarize();
-            }
             throw new AiSummaryException("AI API 키가 설정되지 않아 요약을 생성할 수 없습니다.");
         }
         return callAi(content);
@@ -253,6 +256,14 @@ public class AiSummaryService {
                 "전문가 의견을 통한 깊이 있는 분석",
                 "향후 전망과 예상되는 변화 정리"
         );
+    }
+
+    /**
+     * 현재 설정된 AI 모델명을 반환한다.
+     * 요약 저장 시 어떤 모델이 생성했는지 기록하기 위해 사용한다.
+     */
+    public String getModelName() {
+        return model;
     }
 
     /**

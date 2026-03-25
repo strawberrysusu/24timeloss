@@ -280,8 +280,12 @@ public class ArticleService {
             throw new IllegalArgumentException("기사 본문이 없어서 요약을 생성할 수 없습니다.");
         }
 
-        // AI 요약 생성 (현재는 가짜, 4단계에서 진짜 AI로 교체)
+        // AI 요약 생성
         AiSummaryService.SummaryResult result = aiSummaryService.summarize(article.getContent());
+
+        // 출처 정보: AI가 생성했으므로 AI_GENERATED + 모델명 + 생성 시각 기록
+        String modelName = aiSummaryService.getModelName();
+        LocalDateTime generatedAt = LocalDateTime.now();
 
         // 기존 요약이 있으면 덮어쓰기, 없으면 새로 생성
         ArticleSummary summary = articleSummaryRepository.findByArticleId(articleId)
@@ -290,7 +294,8 @@ public class ArticleService {
         if (summary != null) {
             summary.update(
                     result.summaryLine1(), result.summaryLine2(), result.summaryLine3(),
-                    result.keyPoint1(), result.keyPoint2(), result.keyPoint3());
+                    result.keyPoint1(), result.keyPoint2(), result.keyPoint3(),
+                    SummarySource.AI_GENERATED, modelName, generatedAt);
         } else {
             summary = articleSummaryRepository.save(ArticleSummary.builder()
                     .article(article)
@@ -300,6 +305,9 @@ public class ArticleService {
                     .keyPoint1(result.keyPoint1())
                     .keyPoint2(result.keyPoint2())
                     .keyPoint3(result.keyPoint3())
+                    .summarySource(SummarySource.AI_GENERATED)
+                    .modelName(modelName)
+                    .generatedAt(generatedAt)
                     .build());
         }
 
@@ -329,24 +337,13 @@ public class ArticleService {
                 .originalUrl(request.originalUrl() != null && !request.originalUrl().isBlank()
                         ? request.originalUrl() : null)
                 .thumbnailUrl(request.thumbnailUrl())
+                .videoEmbedUrl(request.videoEmbedUrl())
                 .publishedAt(LocalDateTime.now())
                 .writer(writer)
                 .build());
 
-        ArticleSummary summary = null;
-        if (request.summaryLine1() != null && !request.summaryLine1().isBlank()) {
-            summary = articleSummaryRepository.save(ArticleSummary.builder()
-                    .article(article)
-                    .summaryLine1(request.summaryLine1())
-                    .summaryLine2(request.summaryLine2() != null ? request.summaryLine2() : "")
-                    .summaryLine3(request.summaryLine3() != null ? request.summaryLine3() : "")
-                    .keyPoint1(request.keyPoint1() != null ? request.keyPoint1() : "")
-                    .keyPoint2(request.keyPoint2() != null ? request.keyPoint2() : "")
-                    .keyPoint3(request.keyPoint3() != null ? request.keyPoint3() : "")
-                    .build());
-        }
-
-        return ArticleDetailResponse.from(article, summary);
+        // 요약은 기사 등록 후 "AI 요약 생성" 버튼으로만 만들 수 있다
+        return ArticleDetailResponse.from(article, null);
     }
 
     /**
@@ -363,33 +360,8 @@ public class ArticleService {
         article.update(request.category(), request.title(), request.content(),
                 request.source(), request.originalUrl());
 
-        // AI 요약 수정
-        // summaryLine1이 null → 안 건드림, "" → 기존 요약 삭제, 값 있음 → 업데이트/생성
+        // 기사 수정 시 기존 AI 요약은 그대로 유지한다 (요약은 AI 생성 버튼으로만 관리)
         ArticleSummary summary = articleSummaryRepository.findByArticleId(articleId).orElse(null);
-        if (request.summaryLine1() != null) {
-            if (request.summaryLine1().isBlank()) {
-                // 빈 문자열 = 요약 삭제 의도
-                if (summary != null) {
-                    articleSummaryRepository.delete(summary);
-                    summary = null;
-                }
-            } else if (summary != null) {
-                // 기존 요약 업데이트
-                summary.update(request.summaryLine1(), request.summaryLine2(), request.summaryLine3(),
-                        request.keyPoint1(), request.keyPoint2(), request.keyPoint3());
-            } else {
-                // 새 요약 생성
-                summary = articleSummaryRepository.save(ArticleSummary.builder()
-                        .article(article)
-                        .summaryLine1(request.summaryLine1())
-                        .summaryLine2(request.summaryLine2() != null ? request.summaryLine2() : "")
-                        .summaryLine3(request.summaryLine3() != null ? request.summaryLine3() : "")
-                        .keyPoint1(request.keyPoint1() != null ? request.keyPoint1() : "")
-                        .keyPoint2(request.keyPoint2() != null ? request.keyPoint2() : "")
-                        .keyPoint3(request.keyPoint3() != null ? request.keyPoint3() : "")
-                        .build());
-            }
-        }
 
         return ArticleDetailResponse.from(article, summary);
     }

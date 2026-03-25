@@ -2,6 +2,8 @@ package org.example.newssummaryproject.domain.news;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -14,6 +16,8 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.example.newssummaryproject.domain.common.BaseTimeEntity;
+
+import java.time.LocalDateTime;
 
 /**
  * 기사에 대한 AI 요약 결과를 저장하는 엔티티다.
@@ -59,9 +63,24 @@ public class ArticleSummary extends BaseTimeEntity {
     @Column(nullable = false, length = 500)
     private String keyPoint3;
 
+    // ── 요약 출처 정보 (포트폴리오용으로 중요!) ──
+
+    // 이 요약이 어떻게 만들어졌는지 구분한다 (AI_GENERATED / MANUAL / SEED)
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    private SummarySource summarySource;
+
+    // AI로 생성한 경우, 어떤 모델을 사용했는지 기록한다 (예: "meta/llama-3.3-70b-instruct")
+    @Column(length = 100)
+    private String modelName;
+
+    // AI가 요약을 생성한 시각을 기록한다
+    private LocalDateTime generatedAt;
+
     @Builder
     private ArticleSummary(Article article, String summaryLine1, String summaryLine2, String summaryLine3,
-                           String keyPoint1, String keyPoint2, String keyPoint3) {
+                           String keyPoint1, String keyPoint2, String keyPoint3,
+                           SummarySource summarySource, String modelName, LocalDateTime generatedAt) {
         this.article = article;
         this.summaryLine1 = summaryLine1;
         this.summaryLine2 = summaryLine2;
@@ -69,18 +88,26 @@ public class ArticleSummary extends BaseTimeEntity {
         this.keyPoint1 = keyPoint1;
         this.keyPoint2 = keyPoint2;
         this.keyPoint3 = keyPoint3;
+        this.summarySource = summarySource;
+        this.modelName = modelName;
+        this.generatedAt = generatedAt;
     }
 
     /**
      * 요약 내용을 수정한다.
+     * 출처 정보도 함께 업데이트한다.
      */
     public void update(String summaryLine1, String summaryLine2, String summaryLine3,
-                       String keyPoint1, String keyPoint2, String keyPoint3) {
+                       String keyPoint1, String keyPoint2, String keyPoint3,
+                       SummarySource summarySource, String modelName, LocalDateTime generatedAt) {
         if (summaryLine1 != null) this.summaryLine1 = summaryLine1;
         if (summaryLine2 != null) this.summaryLine2 = summaryLine2;
         if (summaryLine3 != null) this.summaryLine3 = summaryLine3;
         if (keyPoint1 != null) this.keyPoint1 = keyPoint1;
         if (keyPoint2 != null) this.keyPoint2 = keyPoint2;
         if (keyPoint3 != null) this.keyPoint3 = keyPoint3;
+        if (summarySource != null) this.summarySource = summarySource;
+        if (modelName != null) this.modelName = modelName;
+        if (generatedAt != null) this.generatedAt = generatedAt;
     }
 }

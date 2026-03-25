@@ -8,6 +8,7 @@ import org.example.newssummaryproject.domain.news.ArticleRepository;
 import org.example.newssummaryproject.domain.news.ArticleSummary;
 import org.example.newssummaryproject.domain.news.ArticleSummaryRepository;
 import org.example.newssummaryproject.domain.news.Category;
+import org.example.newssummaryproject.domain.news.SummarySource;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -280,10 +281,12 @@ public class DataInitializer implements ApplicationRunner {
     private void summary(Article article,
                          String line1, String line2, String line3,
                          String key1, String key2, String key3) {
+        // 초기 샘플 데이터이므로 출처를 SEED로 표시한다
         articleSummaryRepository.save(ArticleSummary.builder()
                 .article(article)
                 .summaryLine1(line1).summaryLine2(line2).summaryLine3(line3)
                 .keyPoint1(key1).keyPoint2(key2).keyPoint3(key3)
+                .summarySource(SummarySource.SEED)
                 .build());
     }
 }

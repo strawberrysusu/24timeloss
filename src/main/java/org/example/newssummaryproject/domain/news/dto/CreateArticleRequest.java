@@ -11,8 +11,8 @@ import org.example.newssummaryproject.domain.news.Category;
  * 필수 값: category, title, content
  * 나머지는 선택 — 안 넣으면 기본값이 들어간다.
  *
- * AI 요약(summaryLine1~3, keyPoint1~3)은 선택사항이다.
- * 넣으면 기사에 AI 요약이 함께 표시되고, 안 넣으면 요약 없이 노출된다.
+ * AI 요약은 기사 등록 후 "AI 요약 생성" 버튼으로만 만들 수 있다.
+ * (수동 입력 요약 필드는 출처 혼동 방지를 위해 제거했다.)
  */
 public record CreateArticleRequest(
         @NotNull(message = "카테고리는 필수입니다.")
@@ -38,20 +38,8 @@ public record CreateArticleRequest(
         @Size(max = 500, message = "이미지 URL은 500자 이하여야 합니다.")
         String thumbnailUrl,
 
-        // 선택: AI 요약 3줄
-        @Size(max = 500, message = "요약은 500자 이하여야 합니다.")
-        String summaryLine1,
-        @Size(max = 500, message = "요약은 500자 이하여야 합니다.")
-        String summaryLine2,
-        @Size(max = 500, message = "요약은 500자 이하여야 합니다.")
-        String summaryLine3,
-
-        // 선택: 핵심 포인트 3개
-        @Size(max = 500, message = "핵심 포인트는 500자 이하여야 합니다.")
-        String keyPoint1,
-        @Size(max = 500, message = "핵심 포인트는 500자 이하여야 합니다.")
-        String keyPoint2,
-        @Size(max = 500, message = "핵심 포인트는 500자 이하여야 합니다.")
-        String keyPoint3
+        // 선택: 영상 임베드 URL (네이버 tv.naver.com/embed/... 등)
+        @Size(max = 500, message = "영상 URL은 500자 이하여야 합니다.")
+        String videoEmbedUrl
 ) {
 }

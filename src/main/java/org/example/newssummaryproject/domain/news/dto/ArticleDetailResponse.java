@@ -3,6 +3,7 @@ package org.example.newssummaryproject.domain.news.dto;
 import org.example.newssummaryproject.domain.news.Article;
 import org.example.newssummaryproject.domain.news.ArticleSummary;
 import org.example.newssummaryproject.domain.news.Category;
+import org.example.newssummaryproject.domain.news.SummarySource;
 
 import java.time.LocalDateTime;
 
@@ -17,6 +18,7 @@ public record ArticleDetailResponse(
         String source,
         String originalUrl,
         String thumbnailUrl,
+        String videoEmbedUrl,
         String content,
         LocalDateTime publishedAt,
         Long writerId,
@@ -31,6 +33,7 @@ public record ArticleDetailResponse(
                 article.getSource(),
                 article.getOriginalUrl(),
                 article.getThumbnailUrl(),
+                article.getVideoEmbedUrl(),
                 article.getContent(),
                 article.getPublishedAt(),
                 article.getWriter() != null ? article.getWriter().getId() : null,
@@ -45,12 +48,17 @@ public record ArticleDetailResponse(
             String summaryLine3,
             String keyPoint1,
             String keyPoint2,
-            String keyPoint3
+            String keyPoint3,
+            // 출처 정보 — 화면에서 "AI 요약" / "작성자 요약" / "샘플 요약" 라벨을 바꿀 때 사용
+            SummarySource summarySource,
+            String modelName,
+            LocalDateTime generatedAt
     ) {
         public static SummaryResponse from(ArticleSummary s) {
             return new SummaryResponse(
                     s.getSummaryLine1(), s.getSummaryLine2(), s.getSummaryLine3(),
-                    s.getKeyPoint1(), s.getKeyPoint2(), s.getKeyPoint3()
+                    s.getKeyPoint1(), s.getKeyPoint2(), s.getKeyPoint3(),
+                    s.getSummarySource(), s.getModelName(), s.getGeneratedAt()
             );
         }
     }
