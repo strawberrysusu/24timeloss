@@ -38,3 +38,6 @@ out/
 
 ### 환경변수 ###
 .env
+
+.claude/
+naver_article.html
