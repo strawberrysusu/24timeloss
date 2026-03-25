@@ -148,6 +148,23 @@ public class ArticleController {
         return ResponseEntity.ok(articleService.getPopularKeywords());
     }
 
+    // ── AI 요약 생성 (로그인 필수) ──
+
+    /**
+     * AI 요약을 생성(또는 재생성)한다 — POST /api/articles/{id}/generate-summary
+     *
+     * 기사 본문을 AI에 보내서 3줄 요약 + 핵심 포인트 3개를 생성한다.
+     * 이미 요약이 있으면 덮어쓴다.
+     * 현재는 가짜 AI이고, 나중에 진짜 AI로 교체된다.
+     */
+    @PostMapping("/{id}/generate-summary")
+    public ResponseEntity<ArticleDetailResponse> generateSummary(
+            @PathVariable Long id,
+            HttpSession session) {
+        Long memberId = MemberController.getLoginMemberId(session);
+        return ResponseEntity.ok(articleService.generateSummary(memberId, id));
+    }
+
     // ── 기사 등록 / 수정 / 삭제 (로그인 필수) ──
     // 아래 3개 API는 모두 MemberController.getLoginMemberId()로 로그인을 강제한다.
     // 비로그인 상태면 401(UNAUTHORIZED) 에러가 자동으로 발생한다.

@@ -869,6 +869,9 @@
             <div class="ai-box-header">
               <span class="ai-badge-lg">✦ AI 요약</span>
               <span class="ai-box-hint">이 기사의 핵심을 3줄로 정리했습니다</span>
+              ${state.currentUser && a.writerId === state.currentUser.id
+                ? `<button class="btn btn-ghost" style="margin-left:auto;font-size:12px;padding:4px 10px;" onclick="generateSummary(${a.id}, this)">재생성</button>`
+                : ''}
             </div>
             <p class="ai-box-text">
               ${esc(a.summary.summaryLine1)}<br/>
@@ -882,6 +885,13 @@
               <li class="ai-key-item"><span class="ai-key-dot"></span><span class="ai-key-text">${esc(a.summary.keyPoint2)}</span></li>
               <li class="ai-key-item"><span class="ai-key-dot"></span><span class="ai-key-text">${esc(a.summary.keyPoint3)}</span></li>
             </ul>
+          </div>
+        `;
+      } else if (state.currentUser && a.writerId === state.currentUser.id) {
+        summaryHtml = `
+          <div class="ai-box" style="text-align:center;padding:24px;">
+            <p style="color:#64748b;margin-bottom:12px;">아직 AI 요약이 없습니다</p>
+            <button class="btn btn-solid" onclick="generateSummary(${a.id}, this)">✦ AI 요약 생성</button>
           </div>
         `;
       }
@@ -919,6 +929,34 @@
         </div>
         ${a.writerNickname ? `<p style="margin-top:8px;font-size:13px;color:#64748b;">작성자: ${esc(a.writerNickname)}</p>` : ''}
       `;
+    }
+
+    /**
+     * AI 요약 생성 버튼 클릭 시 호출된다.
+     * POST /api/articles/{id}/generate-summary를 호출하고, 결과로 화면을 다시 그린다.
+     */
+    async function generateSummary(articleId, buttonEl) {
+      if (!state.currentUser) {
+        openModal('login');
+        return;
+      }
+      const originalText = buttonEl ? buttonEl.textContent : null;
+      try {
+        if (buttonEl) {
+          buttonEl.disabled = true;
+          buttonEl.textContent = '생성 중...';
+        }
+
+        const result = await api(`/api/articles/${articleId}/generate-summary`, { method: 'POST' });
+        renderArticleDetail(result);
+      } catch (e) {
+        alert(e.message || 'AI 요약 생성에 실패했습니다.');
+      } finally {
+        if (buttonEl && document.body.contains(buttonEl)) {
+          buttonEl.disabled = false;
+          buttonEl.textContent = originalText;
+        }
+      }
     }
 
     async function loadRelatedNews(articleId) {

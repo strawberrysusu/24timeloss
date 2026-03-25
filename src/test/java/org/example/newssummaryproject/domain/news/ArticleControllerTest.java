@@ -440,6 +440,116 @@ class ArticleControllerTest {
                 .andExpect(jsonPath("$").isEmpty());
     }
 
+    // ── AI 요약 생성 (POST /api/articles/{id}/generate-summary) ──
+
+    @Test
+    void AI_요약_생성_성공() throws Exception {
+        MockHttpSession session = new MockHttpSession();
+        Long articleId = signupAndCreateArticle(session, "ai@test.com", "AI테스터");
+
+        // 요약 생성
+        mockMvc.perform(post("/api/articles/" + articleId + "/generate-summary")
+                        .session(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.summary").exists())
+                .andExpect(jsonPath("$.summary.summaryLine1").isNotEmpty())
+                .andExpect(jsonPath("$.summary.summaryLine2").isNotEmpty())
+                .andExpect(jsonPath("$.summary.summaryLine3").isNotEmpty())
+                .andExpect(jsonPath("$.summary.keyPoint1").isNotEmpty())
+                .andExpect(jsonPath("$.summary.keyPoint2").isNotEmpty())
+                .andExpect(jsonPath("$.summary.keyPoint3").isNotEmpty());
+    }
+
+    @Test
+    void AI_요약_생성후_상세조회시_요약_포함() throws Exception {
+        MockHttpSession session = new MockHttpSession();
+        Long articleId = signupAndCreateArticle(session, "ai2@test.com", "AI테스터2");
+
+        // 요약 생성 전에는 summary가 null
+        mockMvc.perform(get("/api/articles/" + articleId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.summary").doesNotExist());
+
+        // 요약 생성
+        mockMvc.perform(post("/api/articles/" + articleId + "/generate-summary")
+                        .session(session))
+                .andExpect(status().isOk());
+
+        // 요약 생성 후에는 summary가 존재
+        mockMvc.perform(get("/api/articles/" + articleId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.summary").exists())
+                .andExpect(jsonPath("$.summary.summaryLine1").isNotEmpty());
+    }
+
+    @Test
+    void AI_요약_재생성_덮어쓰기() throws Exception {
+        MockHttpSession session = new MockHttpSession();
+        Long articleId = signupAndCreateArticle(session, "ai3@test.com", "AI테스터3");
+
+        // 첫 번째 요약 생성
+        mockMvc.perform(post("/api/articles/" + articleId + "/generate-summary")
+                        .session(session))
+                .andExpect(status().isOk());
+
+        // 두 번째 요약 생성 (덮어쓰기) — 에러 없이 성공해야 한다
+        mockMvc.perform(post("/api/articles/" + articleId + "/generate-summary")
+                        .session(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.summary").exists());
+    }
+
+    @Test
+    void 비로그인_AI_요약_생성_401() throws Exception {
+        mockMvc.perform(post("/api/articles/" + article1.getId() + "/generate-summary"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+    }
+
+    @Test
+    void 다른_회원_기사_AI_요약_생성_403() throws Exception {
+        MockHttpSession ownerSession = new MockHttpSession();
+        Long articleId = signupAndCreateArticle(ownerSession, "ai-owner@test.com", "AI작성자");
+
+        MockHttpSession otherSession = new MockHttpSession();
+        mockMvc.perform(post("/api/members/signup")
+                .session(otherSession)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"email\":\"ai-other@test.com\",\"password\":\"1234\",\"nickname\":\"다른회원\"}"));
+
+        mockMvc.perform(post("/api/articles/" + articleId + "/generate-summary")
+                        .session(otherSession))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+    }
+
+    @Test
+    void 작성자_없는_기사_AI_요약_생성_403() throws Exception {
+        MockHttpSession session = new MockHttpSession();
+        mockMvc.perform(post("/api/members/signup")
+                .session(session)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"email\":\"ai5@test.com\",\"password\":\"1234\",\"nickname\":\"AI테스터5\"}"));
+
+        mockMvc.perform(post("/api/articles/" + article1.getId() + "/generate-summary")
+                        .session(session))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+    }
+
+    @Test
+    void 존재하지않는_기사_AI_요약_404() throws Exception {
+        MockHttpSession session = new MockHttpSession();
+        mockMvc.perform(post("/api/members/signup")
+                .session(session)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"email\":\"ai4@test.com\",\"password\":\"1234\",\"nickname\":\"AI테스터4\"}"));
+
+        mockMvc.perform(post("/api/articles/999999/generate-summary")
+                        .session(session))
+                .andExpect(status().isNotFound());
+    }
+
     // ── 에러 응답 형식 통일 ──
 
     @Test

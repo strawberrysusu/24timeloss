@@ -52,6 +52,8 @@ public class ArticleService {
     private final ArticleRepository articleRepository;
     // AI 요약 조회/저장
     private final ArticleSummaryRepository articleSummaryRepository;
+    // AI 요약 생성 (현재 가짜, 나중에 진짜 AI로 교체)
+    private final AiSummaryService aiSummaryService;
     // 회원의 관심 카테고리 조회 (추천 기능용)
     private final MemberInterestRepository memberInterestRepository;
     // 회원 조회 (기사 작성자 설정용)
@@ -254,6 +256,57 @@ public class ArticleService {
     }
 
     // ──────────────────────────────────────────────────────
+    // AI 요약 생성
+    // ──────────────────────────────────────────────────────
+
+    /**
+     * 기사의 AI 요약을 생성(또는 재생성)한다.
+     *
+     * 동작 순서:
+     *   1. 기사를 조회한다 (없으면 404)
+     *   2. AiSummaryService로 요약을 생성한다
+     *   3. 이미 요약이 있으면 덮어쓰고, 없으면 새로 만든다
+     *   4. 결과를 ArticleDetailResponse로 반환한다
+     */
+    @Transactional
+    public ArticleDetailResponse generateSummary(Long memberId, Long articleId) {
+        Article article = articleRepository.findById(articleId)
+                .orElseThrow(() -> new NotFoundException("기사를 찾을 수 없습니다. id=" + articleId));
+
+        checkSummaryGenerationPermission(article, memberId);
+
+        // 본문이 없으면 요약할 수 없다
+        if (article.getContent() == null || article.getContent().isBlank()) {
+            throw new IllegalArgumentException("기사 본문이 없어서 요약을 생성할 수 없습니다.");
+        }
+
+        // AI 요약 생성 (현재는 가짜, 4단계에서 진짜 AI로 교체)
+        AiSummaryService.SummaryResult result = aiSummaryService.summarize(article.getContent());
+
+        // 기존 요약이 있으면 덮어쓰기, 없으면 새로 생성
+        ArticleSummary summary = articleSummaryRepository.findByArticleId(articleId)
+                .orElse(null);
+
+        if (summary != null) {
+            summary.update(
+                    result.summaryLine1(), result.summaryLine2(), result.summaryLine3(),
+                    result.keyPoint1(), result.keyPoint2(), result.keyPoint3());
+        } else {
+            summary = articleSummaryRepository.save(ArticleSummary.builder()
+                    .article(article)
+                    .summaryLine1(result.summaryLine1())
+                    .summaryLine2(result.summaryLine2())
+                    .summaryLine3(result.summaryLine3())
+                    .keyPoint1(result.keyPoint1())
+                    .keyPoint2(result.keyPoint2())
+                    .keyPoint3(result.keyPoint3())
+                    .build());
+        }
+
+        return ArticleDetailResponse.from(article, summary);
+    }
+
+    // ──────────────────────────────────────────────────────
     // 기사 등록 / 삭제
     // ──────────────────────────────────────────────────────
 
@@ -376,6 +429,17 @@ public class ArticleService {
     private void checkOwnership(Article article, Long memberId) {
         if (article.getWriter() == null || !article.getWriter().getId().equals(memberId)) {
             throw new ForbiddenException("본인이 작성한 기사만 수정/삭제할 수 있습니다.");
+        }
+    }
+
+    /**
+     * 기사 작성자만 AI 요약을 생성하거나 재생성할 수 있다.
+     *
+     * AI 요약도 DB에 저장되는 기사 부가 정보이므로, 임의의 사용자가 덮어쓰지 못하게 막는다.
+     */
+    private void checkSummaryGenerationPermission(Article article, Long memberId) {
+        if (article.getWriter() == null || !article.getWriter().getId().equals(memberId)) {
+            throw new ForbiddenException("본인이 작성한 기사만 AI 요약을 생성할 수 있습니다.");
         }
     }
 

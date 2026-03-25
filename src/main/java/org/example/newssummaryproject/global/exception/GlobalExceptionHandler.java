@@ -64,6 +64,13 @@ public class GlobalExceptionHandler {
                 .body(ErrorResponse.of(403, "FORBIDDEN", e.getMessage()));
     }
 
+    // 503 — AI 요약 서비스 오류 (외부 API 호출 실패)
+    @ExceptionHandler(AiSummaryException.class)
+    public ResponseEntity<ErrorResponse> handleAiSummary(AiSummaryException e) {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(ErrorResponse.of(503, "AI_SUMMARY_FAILED", e.getMessage()));
+    }
+
     // 400 — @Valid 검증 실패 (이메일 형식, 비밀번호 길이 등)
     // Controller에서 @Valid가 붙은 DTO의 @NotBlank, @Size 등이 실패하면 이 예외가 발생한다.
     // getFieldErrors()에서 첫 번째 검증 실패 메시지를 꺼내서 응답에 담는다.
