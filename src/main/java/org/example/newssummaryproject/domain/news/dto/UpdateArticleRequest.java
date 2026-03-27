@@ -22,6 +22,14 @@ public record UpdateArticleRequest(
         String source,
 
         @Size(max = 500, message = "URL은 500자 이하여야 합니다.")
-        String originalUrl
+        String originalUrl,
+
+        // 선택: 대표 이미지 URL
+        @Size(max = 500, message = "이미지 URL은 500자 이하여야 합니다.")
+        String thumbnailUrl,
+
+        // 선택: 영상 임베드 URL (네이버 tv.naver.com/embed/... 등)
+        @Size(max = 500, message = "영상 URL은 500자 이하여야 합니다.")
+        String videoEmbedUrl
 ) {
 }

@@ -21,9 +21,6 @@ public interface SavedArticleRepository extends JpaRepository<SavedArticle, Long
     // 저장 취소 시 해당 기록을 찾기 위해 사용
     Optional<SavedArticle> findByMemberIdAndArticleId(Long memberId, Long articleId);
 
-    // 회원의 저장 기사 수
-    long countByMemberId(Long memberId);
-
     // 회원이 저장한 기사 ID 목록만 빠르게 조회 (프론트에서 저장 버튼 상태 표시용)
     @Query("SELECT sa.article.id FROM SavedArticle sa WHERE sa.member.id = :memberId")
     List<Long> findArticleIdsByMemberId(@Param("memberId") Long memberId);

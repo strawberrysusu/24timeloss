@@ -375,7 +375,7 @@
       <input class="modal-input" id="admin-title" type="text" placeholder="기사 제목" />
       <input class="modal-input" id="admin-source" type="text" placeholder="출처 (예: 한국일보)" />
       <input class="modal-input" id="admin-thumbnail" type="text" placeholder="대표 이미지 URL" />
-      <!-- 영상 URL은 URL 추출 시 자동으로 채워진다 (사용자가 직접 입력하지 않는다) -->
+      <!-- 영상 정보는 URL 추출 시 자동으로 채워진다 (사용자가 직접 입력하지 않는다) -->
       <input type="hidden" id="admin-video-url" />
       <textarea class="modal-input" id="admin-content" placeholder="기사 본문" rows="4" style="resize:vertical;font-family:inherit;"></textarea>
       <!-- AI 요약은 기사 등록 후 "AI 요약 생성" 버튼으로만 만들 수 있다 -->
@@ -489,6 +489,7 @@
        PAGE SWITCHING
     ══════════════════════════════════════════ */
     function showPage(name, skipHistory) {
+      tts.stop();
       document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
       document.getElementById('page-' + name).classList.add('active');
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -702,10 +703,10 @@
         if (result.source) document.getElementById('admin-source').value = result.source;
         if (result.thumbnailUrl) document.getElementById('admin-thumbnail').value = result.thumbnailUrl;
         if (result.content) document.getElementById('admin-content').value = result.content;
-        // 영상 URL이 있으면 숨겨진 필드에 저장한다
+        // 영상 정보를 숨겨진 필드에 저장한다
         document.getElementById('admin-video-url').value = result.videoEmbedUrl || '';
 
-        const videoMsg = result.hasVideo ? ' (영상 기사)' : '';
+        const videoMsg = result.videoEmbedUrl ? ' (영상 기사)' : '';
         statusEl.textContent = '기사 정보를 불러왔습니다.' + videoMsg + ' 확인 후 등록해주세요.';
         statusEl.style.color = '#22c55e';
       } catch (e) {
@@ -718,6 +719,7 @@
     }
 
     function closeModal() {
+      tts.stop();
       document.getElementById('modal-overlay').classList.remove('show');
       document.getElementById('login-error').textContent = '';
       document.getElementById('signup-error').textContent = '';
@@ -860,9 +862,78 @@
     }
 
     /* ══════════════════════════════════════════
+       TTS (브라우저 음성 읽기)
+    ══════════════════════════════════════════ */
+    const tts = {
+      supported: 'speechSynthesis' in window,
+      utterance: null,
+      paused: false,
+
+      // 재생 시작
+      play(title, body) {
+        this.stop();
+        const text = title + '.\n' + body;
+        this.utterance = new SpeechSynthesisUtterance(text);
+        this.utterance.lang = 'ko-KR';
+        this.utterance.rate = 1.0;
+        this.utterance.onend = () => this.updateBtn('ended');
+        speechSynthesis.speak(this.utterance);
+        this.paused = false;
+        this.updateBtn('playing');
+      },
+
+      // 일시정지 / 재개
+      togglePause() {
+        if (!speechSynthesis.speaking) return;
+        if (speechSynthesis.paused) {
+          speechSynthesis.resume();
+          this.paused = false;
+          this.updateBtn('playing');
+        } else {
+          speechSynthesis.pause();
+          this.paused = true;
+          this.updateBtn('paused');
+        }
+      },
+
+      // 중지
+      stop() {
+        speechSynthesis.cancel();
+        this.utterance = null;
+        this.paused = false;
+        this.updateBtn('stopped');
+      },
+
+      // 버튼 상태 업데이트
+      updateBtn(status) {
+        const playBtn = document.getElementById('tts-play');
+        const pauseBtn = document.getElementById('tts-pause');
+        const stopBtn = document.getElementById('tts-stop');
+        if (!playBtn) return;
+
+        if (status === 'playing') {
+          playBtn.style.display = 'none';
+          pauseBtn.style.display = '';
+          pauseBtn.textContent = '⏸ 일시정지';
+          stopBtn.style.display = '';
+        } else if (status === 'paused') {
+          playBtn.style.display = 'none';
+          pauseBtn.style.display = '';
+          pauseBtn.textContent = '▶ 재개';
+          stopBtn.style.display = '';
+        } else {
+          playBtn.style.display = '';
+          pauseBtn.style.display = 'none';
+          stopBtn.style.display = 'none';
+        }
+      }
+    };
+
+    /* ══════════════════════════════════════════
        ARTICLE DETAIL
     ══════════════════════════════════════════ */
     async function openDetail(id, skipHistory) {
+      tts.stop();
       state.currentArticleId = id;
       document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
       document.getElementById('page-detail').classList.add('active');
@@ -910,7 +981,6 @@
         // 출처에 따라 라벨과 설명을 다르게 보여준다
         const sourceLabels = {
           AI_GENERATED: { badge: '✦ AI 요약', hint: 'AI가 자동으로 요약했습니다' },
-          MANUAL:       { badge: '✎ 작성자 요약', hint: '작성자가 직접 작성한 요약입니다' },
           SEED:         { badge: '📌 샘플 요약', hint: '시연용 샘플 데이터입니다' }
         };
         const src = sourceLabels[a.summary.summarySource] || sourceLabels.AI_GENERATED;
@@ -984,6 +1054,11 @@
         <div class="article-actions">
           <button class="${saveClass}" data-save-btn="${a.id}" onclick="toggleSave(${a.id})">${saveIcon} ${saveLabel}</button>
           ${originalBtnHtml}
+          ${tts.supported ? `
+            <button id="tts-play" class="btn btn-ghost btn-md" onclick="tts.play(\`${esc(a.title).replace(/`/g,'\\`')}\`, document.querySelector('.article-body')?.innerText || '')">🔊 읽어주기</button>
+            <button id="tts-pause" class="btn btn-ghost btn-md" style="display:none" onclick="tts.togglePause()">⏸ 일시정지</button>
+            <button id="tts-stop" class="btn btn-ghost btn-md" style="display:none" onclick="tts.stop()">⏹ 중지</button>
+          ` : ''}
           ${state.currentUser && a.writerId === state.currentUser.id ? `
             <button class="btn btn-ghost btn-md" onclick="openEditArticle(${a.id})">수정</button>
             <button class="btn btn-ghost btn-md" style="color:var(--danger,#ef4444);" onclick="confirmDeleteArticle(${a.id})">삭제</button>

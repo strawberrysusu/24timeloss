@@ -322,12 +322,19 @@ public class ArticleService {
      * 새 기사를 등록한다.
      * 로그인한 회원이 작성자(writer)로 설정된다.
      * 원문 URL이 없으면 null로 저장한다 (가짜 URL을 넣지 않는다).
-     * AI 요약 필드가 함께 들어오면 요약도 같이 저장된다.
      */
     @Transactional
     public ArticleDetailResponse createArticle(Long memberId, CreateArticleRequest request) {
         Member writer = memberRepository.findById(memberId)
                 .orElseThrow(() -> new NotFoundException("회원을 찾을 수 없습니다. id=" + memberId));
+
+        // 같은 URL로 이미 등록된 기사가 있는지 확인
+        if (request.originalUrl() != null && !request.originalUrl().isBlank()) {
+            articleRepository.findByOriginalUrl(request.originalUrl())
+                    .ifPresent(existing -> {
+                        throw new IllegalArgumentException("이미 등록된 기사입니다: " + existing.getTitle());
+                    });
+        }
 
         Article article = articleRepository.save(Article.builder()
                 .category(request.category())
@@ -348,7 +355,6 @@ public class ArticleService {
 
     /**
      * 기사를 수정한다. 작성자 본인만 수정할 수 있다.
-     * source, originalUrl, AI 요약도 함께 수정할 수 있다.
      */
     @Transactional
     public ArticleDetailResponse updateArticle(Long memberId, Long articleId, UpdateArticleRequest request) {
@@ -358,7 +364,8 @@ public class ArticleService {
         checkOwnership(article, memberId);
 
         article.update(request.category(), request.title(), request.content(),
-                request.source(), request.originalUrl());
+                request.source(), request.originalUrl(),
+                request.thumbnailUrl(), request.videoEmbedUrl());
 
         // 기사 수정 시 기존 AI 요약은 그대로 유지한다 (요약은 AI 생성 버튼으로만 관리)
         ArticleSummary summary = articleSummaryRepository.findByArticleId(articleId).orElse(null);

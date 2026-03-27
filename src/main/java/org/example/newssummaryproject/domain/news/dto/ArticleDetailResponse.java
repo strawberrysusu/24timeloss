@@ -18,6 +18,7 @@ public record ArticleDetailResponse(
         String source,
         String originalUrl,
         String thumbnailUrl,
+        boolean hasVideo,
         String videoEmbedUrl,
         String content,
         LocalDateTime publishedAt,
@@ -33,6 +34,7 @@ public record ArticleDetailResponse(
                 article.getSource(),
                 article.getOriginalUrl(),
                 article.getThumbnailUrl(),
+                article.isHasVideo(),
                 article.getVideoEmbedUrl(),
                 article.getContent(),
                 article.getPublishedAt(),
@@ -49,7 +51,7 @@ public record ArticleDetailResponse(
             String keyPoint1,
             String keyPoint2,
             String keyPoint3,
-            // 출처 정보 — 화면에서 "AI 요약" / "작성자 요약" / "샘플 요약" 라벨을 바꿀 때 사용
+            // 출처 정보 — 화면에서 "AI 요약" / "샘플 요약" 라벨을 바꿀 때 사용
             SummarySource summarySource,
             String modelName,
             LocalDateTime generatedAt

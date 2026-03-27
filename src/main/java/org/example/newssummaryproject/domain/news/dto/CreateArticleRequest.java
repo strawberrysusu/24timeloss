@@ -12,7 +12,6 @@ import org.example.newssummaryproject.domain.news.Category;
  * 나머지는 선택 — 안 넣으면 기본값이 들어간다.
  *
  * AI 요약은 기사 등록 후 "AI 요약 생성" 버튼으로만 만들 수 있다.
- * (수동 입력 요약 필드는 출처 혼동 방지를 위해 제거했다.)
  */
 public record CreateArticleRequest(
         @NotNull(message = "카테고리는 필수입니다.")
@@ -39,6 +38,7 @@ public record CreateArticleRequest(
         String thumbnailUrl,
 
         // 선택: 영상 임베드 URL (네이버 tv.naver.com/embed/... 등)
+        // 이 값이 있으면 자동으로 영상 기사로 판단된다
         @Size(max = 500, message = "영상 URL은 500자 이하여야 합니다.")
         String videoEmbedUrl
 ) {

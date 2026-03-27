@@ -64,8 +64,13 @@ public class Article extends BaseTimeEntity {
     @Column(length = 500)
     private String thumbnailUrl;
 
-    // 영상 기사인 경우 iframe으로 재생할 수 있는 URL을 저장한다
-    // 예: "https://tv.naver.com/embed/96436388"
+    // 영상 기사 여부 — videoEmbedUrl이 있으면 true, 없으면 false.
+    // DB에는 저장하지만 값은 항상 videoEmbedUrl에서 파생된다.
+    @Column(nullable = false)
+    private boolean hasVideo = false;
+
+    // 영상 임베드 URL (예: "https://tv.naver.com/embed/96436388")
+    // 네이버 뉴스만 지원. 이 값이 있으면 hasVideo=true.
     @Column(length = 500)
     private String videoEmbedUrl;
 
@@ -100,6 +105,7 @@ public class Article extends BaseTimeEntity {
         this.source = source;
         this.thumbnailUrl = thumbnailUrl;
         this.videoEmbedUrl = videoEmbedUrl;
+        this.hasVideo = videoEmbedUrl != null && !videoEmbedUrl.isBlank();
         this.content = content;
         this.publishedAt = publishedAt;
         this.writer = writer;
@@ -109,12 +115,18 @@ public class Article extends BaseTimeEntity {
      * 기사 내용을 수정한다.
      * null → 안 건드림, 빈 문자열("") → 값 삭제, 값 있음 → 덮어쓰기.
      */
-    public void update(Category category, String title, String content, String source, String originalUrl) {
+    public void update(Category category, String title, String content, String source,
+                       String originalUrl, String thumbnailUrl, String videoEmbedUrl) {
         if (category != null) this.category = category;
         if (title != null && !title.isBlank()) this.title = title;
         if (content != null && !content.isBlank()) this.content = content;
         if (source != null) this.source = source.isBlank() ? null : source;
         if (originalUrl != null) this.originalUrl = originalUrl.isBlank() ? null : originalUrl;
+        if (thumbnailUrl != null) this.thumbnailUrl = thumbnailUrl.isBlank() ? null : thumbnailUrl;
+        if (videoEmbedUrl != null) {
+            this.videoEmbedUrl = videoEmbedUrl.isBlank() ? null : videoEmbedUrl;
+            this.hasVideo = this.videoEmbedUrl != null;
+        }
     }
 
     /**

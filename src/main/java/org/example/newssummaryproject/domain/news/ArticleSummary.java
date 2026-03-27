@@ -65,7 +65,7 @@ public class ArticleSummary extends BaseTimeEntity {
 
     // ── 요약 출처 정보 (포트폴리오용으로 중요!) ──
 
-    // 이 요약이 어떻게 만들어졌는지 구분한다 (AI_GENERATED / MANUAL / SEED)
+    // 이 요약이 어떻게 만들어졌는지 구분한다 (AI_GENERATED / SEED)
     @Enumerated(EnumType.STRING)
     @Column(length = 20)
     private SummarySource summarySource;

@@ -12,9 +12,6 @@ import java.util.List;
  */
 public interface ArticleReadHistoryRepository extends JpaRepository<ArticleReadHistory, Long> {
 
-    // 전체 기록 수 (중복 포함 — 같은 기사를 다른 날에 읽으면 각각 카운트)
-    long countByMemberId(Long memberId);
-
     // 읽은 "고유 기사" 수 (같은 기사를 여러 날 읽어도 1로 센다)
     @Query("SELECT COUNT(DISTINCT h.article.id) FROM ArticleReadHistory h WHERE h.member.id = :memberId")
     long countDistinctArticlesByMemberId(@Param("memberId") Long memberId);

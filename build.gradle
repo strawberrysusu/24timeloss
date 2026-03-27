@@ -40,6 +40,11 @@ dependencies {
     // Jsoup — 뉴스 URL에서 제목/이미지/본문을 자동 추출할 때 사용한다
     implementation 'org.jsoup:jsoup:1.18.3'
 
+    // Readability4J — Mozilla Firefox 리더 모드의 Java 버전
+    // CSS 셀렉터 대신 "텍스트 밀도 분석"으로 본문을 자동 추출한다.
+    // 덕분에 모든 뉴스 사이트의 HTML 구조를 일일이 등록할 필요가 없다.
+    implementation 'net.dankito.readability4j:readability4j:1.0.8'
+
     // Lombok은 반복되는 getter/builder/생성자 코드를 줄여준다.
     compileOnly 'org.projectlombok:lombok'
     developmentOnly 'org.springframework.boot:spring-boot-devtools'

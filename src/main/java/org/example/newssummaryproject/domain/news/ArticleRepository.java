@@ -7,29 +7,27 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 
 /**
  * 기사 데이터를 조회/저장하는 Repository다.
  */
 public interface ArticleRepository extends JpaRepository<Article, Long> {
 
+    // 같은 URL로 이미 등록된 기사가 있는지 확인한다. (중복 등록 방지)
+    Optional<Article> findByOriginalUrl(String originalUrl);
+
     // 카테고리별 최신 기사 목록을 뽑을 때 사용한다.
-    List<Article> findByCategoryOrderByPublishedAtDesc(Category category);
     Page<Article> findByCategoryOrderByPublishedAtDesc(Category category, Pageable pageable);
 
     // 전체 기사를 최신순으로 조회한다.
-    List<Article> findAllByOrderByPublishedAtDesc();
     Page<Article> findAllByOrderByPublishedAtDesc(Pageable pageable);
 
     // 제목 또는 본문에서 키워드를 검색한다.
     @Query("SELECT a FROM Article a WHERE a.title LIKE %:keyword% OR a.content LIKE %:keyword% ORDER BY a.publishedAt DESC")
-    List<Article> searchByKeyword(@Param("keyword") String keyword);
-
-    @Query("SELECT a FROM Article a WHERE a.title LIKE %:keyword% OR a.content LIKE %:keyword% ORDER BY a.publishedAt DESC")
     Page<Article> searchByKeyword(@Param("keyword") String keyword, Pageable pageable);
 
     // 관심 카테고리 목록에 해당하는 기사를 최신순으로 가져온다. (추천용)
-    List<Article> findByCategoryInOrderByPublishedAtDesc(List<Category> categories);
     Page<Article> findByCategoryInOrderByPublishedAtDesc(List<Category> categories, Pageable pageable);
 
     // 같은 카테고리의 관련 기사를 가져온다. (상세 페이지 관련 뉴스용, 현재 기사 제외)

@@ -1,157 +1,213 @@
-# NewsPick - 뉴스 개인화/저장 서비스
+# 24timeloss
 
-뉴스 기사를 읽고, 저장하고, 관심 분야를 설정해서 개인화된 뉴스 피드를 받을 수 있는 백엔드 API 서비스입니다.
+뉴스를 모아 보고, 기사 URL에서 내용을 추출하고, AI 요약과 개인화 기능까지 붙인 Spring Boot 기반 뉴스 웹앱입니다.
+
+현재 기준으로 이 프로젝트는 다음 흐름을 지원합니다.
+
+- 기사 목록, 상세, 검색, 추천, 트렌딩, 브리핑 조회
+- 회원가입 / 로그인 / 로그아웃 / 세션 기반 인증
+- 마이페이지: 관심 카테고리, 저장한 기사, 읽기 기록, 닉네임/비밀번호 변경
+- 기사 URL 추출 후 등록
+- AI 요약 생성
+- 네이버 뉴스 내부의 네이버 플레이어 영상 임베드 재생
+
+## 핵심 기능
+
+### 1. 기사 수집 및 등록
+
+- 기사 URL을 입력하면 제목, 출처, 본문, 썸네일을 자동 추출합니다.
+- 본문 추출은 `Jsoup` + `Readability4J` fallback 구조를 사용합니다.
+- 추출 결과를 기반으로 직접 기사 등록이 가능합니다.
+
+### 2. 영상 처리 정책
+
+현재 영상은 아래 정책으로 동작합니다.
+
+- 네이버 뉴스 기사 안에서 네이버 플레이어 임베드가 확인되면 사이트 내부에서 재생
+- 그 외 언론사 영상이거나 임베드 URL을 안정적으로 만들 수 없으면 썸네일 + 원문 링크로 대체
+
+즉, "모든 언론사 영상 재생"이 목표가 아니라, 현재는 "네이버 뉴스 안의 네이버 플레이어"를 안전하게 지원하는 방향입니다.
+
+### 3. AI 요약
+
+- 기사 상세에서 3줄 요약 + 핵심 포인트 3개를 생성합니다.
+- OpenAI 호환 Chat Completions API 형식의 모델을 사용할 수 있습니다.
+- 기본 설정은 NVIDIA NIM 호환 엔드포인트 기준입니다.
+- `AI_MOCK_ENABLED=true`로 두면 실제 API 호출 없이 mock 요약으로 테스트할 수 있습니다.
+
+### 4. 개인화
+
+- 관심 카테고리 기반 추천 기사
+- 저장한 기사 관리
+- 읽기 기록 저장 및 조회
+- 인기 검색어 집계
 
 ## 기술 스택
 
-- Java 17
-- Spring Boot 4.0.3
-- Spring Data JPA + Hibernate
-- MySQL 8.0 (운영) / H2 (테스트)
-- Mustache (임시 프론트엔드)
-- Gradle
+| 구분 | 내용 |
+| --- | --- |
+| Language | Java 17 |
+| Framework | Spring Boot 4.0.3 |
+| View | Mustache |
+| ORM | Spring Data JPA / Hibernate |
+| DB | MySQL 8 / H2(Test) |
+| Parsing | Jsoup, Readability4J |
+| Docs | springdoc-openapi |
+| Build | Gradle |
 
-## 주요 기능
+## 프로젝트 구조
 
-| 기능 | 설명 |
-|------|------|
-| 회원가입 / 로그인 | 이메일 기반, BCrypt 비밀번호 암호화, 세션 인증 |
-| 기사 목록 / 상세 | 카테고리 필터, 페이지네이션, 조회수 추적 |
-| 키워드 검색 | 제목+본문 검색, 인기 검색어 집계 |
-| 기사 저장 | 북마크 기능, 중복 저장 방지 |
-| 관심 분야 | 7개 카테고리 중 선택, 추천 기사에 반영 |
-| 읽기 기록 | 자동 저장, 연속 방문 스트릭 계산 |
-| 마이페이지 | 읽은 기사 수, 스트릭, 관심 분야, 저장 기사 종합 |
-| 기사 등록 | 로그인 사용자만 가능, AI 요약 선택 입력 |
-| 트렌딩 | 조회수 기반 인기 기사 |
-| AI 브리핑 | 최신 기사 요약 조합 |
+```text
+src/main/java/org/example/newssummaryproject
+├─ domain
+│  ├─ member   # 회원, 저장 기사, 읽기 기록, 관심 카테고리, 마이페이지
+│  └─ news     # 기사, 요약, 검색 로그, 기사 추출, 추천/트렌딩/브리핑
+└─ global
+   ├─ api      # health check
+   ├─ config   # JPA auditing, password encoder 등
+   ├─ exception
+   ├─ init     # 개발용 시드 데이터
+   └─ view     # index.mustache 진입 페이지
+```
 
 ## 실행 방법
 
-### 1. MySQL 준비
+### 1. 준비물
+
+- Java 17
+- MySQL 8.x
+
+### 2. 데이터베이스 생성
 
 ```sql
 CREATE DATABASE newspick DEFAULT CHARACTER SET utf8mb4;
 ```
 
-### 2. 환경변수 설정
+### 3. 환경 변수 설정
 
-이 프로젝트는 **OS 환경변수**에서 DB 접속 정보를 읽습니다.
-`.env` 파일을 자동으로 로드하지 않으므로, 아래 중 한 가지 방식으로 설정하세요.
+프로젝트는 환경 변수로 DB와 AI 설정을 읽습니다.
 
-**방법 A) IDE 실행 설정에 환경변수 추가** (IntelliJ 권장)
+#### 필수
 
-Run Configuration > Environment variables 에 아래 값을 추가합니다.
+| 변수명 | 설명 | 예시 |
+| --- | --- | --- |
+| `DB_URL` | MySQL JDBC URL | `jdbc:mysql://localhost:3306/newspick?...` |
+| `DB_USERNAME` | DB 계정 | `root` |
+| `DB_PASSWORD` | DB 비밀번호 | `1234` |
 
-```
-DB_URL=jdbc:mysql://localhost:3306/newspick?serverTimezone=Asia/Seoul&characterEncoding=UTF-8&useSSL=false&allowPublicKeyRetrieval=true&createDatabaseIfNotExist=true
-DB_USERNAME=root
-DB_PASSWORD=본인_비밀번호
-```
+#### 선택
 
-**방법 B) 터미널에서 직접 지정 후 실행**
+| 변수명 | 설명 | 기본값 |
+| --- | --- | --- |
+| `AI_API_KEY` | AI 요약 API 키 | 빈 값 |
+| `AI_MODEL` | 사용할 모델명 | `meta/llama-3.3-70b-instruct` |
+| `AI_BASE_URL` | OpenAI 호환 Chat Completions URL | NVIDIA NIM URL |
+| `AI_TIMEOUT` | AI 요청 타임아웃(초) | `30` |
+| `AI_MOCK_ENABLED` | mock 요약 사용 여부 | `false` |
 
-```bash
-# Linux / Mac
-export DB_URL="jdbc:mysql://localhost:3306/newspick?serverTimezone=Asia/Seoul&characterEncoding=UTF-8&useSSL=false&allowPublicKeyRetrieval=true&createDatabaseIfNotExist=true"
-export DB_USERNAME=root
-export DB_PASSWORD=본인_비밀번호
-./gradlew bootRun
+PowerShell 예시:
 
-# Windows PowerShell
+```powershell
 $env:DB_URL="jdbc:mysql://localhost:3306/newspick?serverTimezone=Asia/Seoul&characterEncoding=UTF-8&useSSL=false&allowPublicKeyRetrieval=true&createDatabaseIfNotExist=true"
 $env:DB_USERNAME="root"
-$env:DB_PASSWORD="본인_비밀번호"
-./gradlew bootRun
+$env:DB_PASSWORD="1234"
+$env:AI_API_KEY=""
+$env:AI_MOCK_ENABLED="true"
 ```
 
-> 환경변수를 설정하지 않으면 `application.properties`의 기본값(`root` / `1234`)이 사용됩니다.
-
-### 3. 실행
+### 4. 애플리케이션 실행
 
 ```bash
 ./gradlew bootRun
 ```
 
-브라우저에서 `http://localhost:8080` 으로 접속합니다.
+실행 후 접속:
 
-### 4. 테스트
+- 메인 화면: `http://localhost:8080`
+- Swagger UI: `http://localhost:8080/swagger-ui.html`
+- Health Check: `http://localhost:8080/health`
+
+## 기본 시드 데이터
+
+DB가 비어 있을 때 개발용 데이터가 자동으로 들어갑니다.
+
+- 테스트 계정
+  - 이메일: `test@test.com`
+  - 비밀번호: `1234`
+- 카테고리별 샘플 기사 및 요약 데이터
+
+## 테스트
 
 ```bash
 ./gradlew test
 ```
 
-테스트는 H2 메모리 DB를 사용하므로 MySQL 없이도 실행됩니다.
+현재 테스트는 통과 기준으로 관리되고 있습니다.
 
-## API 명세
+참고:
 
-### 회원 API
+- 일부 기사 추출 테스트는 외부 뉴스 페이지 구조 변화의 영향을 받을 수 있습니다.
+- 네이버 / 언론사 HTML 구조가 바뀌면 추출 로직도 함께 보정해야 합니다.
 
-| 메서드 | URL | 설명 | 인증 |
-|--------|-----|------|------|
-| POST | `/api/members/signup` | 회원가입 | X |
-| POST | `/api/members/login` | 로그인 | X |
-| POST | `/api/members/logout` | 로그아웃 | O |
-| GET | `/api/members/me` | 내 정보 조회 | O |
+## 주요 API
 
-### 기사 API
+### 회원
 
-| 메서드 | URL | 설명 | 인증 |
-|--------|-----|------|------|
-| GET | `/api/articles?category=IT_SCIENCE&page=0&size=10` | 기사 목록 | X |
-| GET | `/api/articles/{id}` | 기사 상세 | X |
-| GET | `/api/articles/search?keyword=AI&page=0&size=10` | 키워드 검색 | X |
-| GET | `/api/articles/recommendations?page=0&size=10` | 추천 기사 | 선택 |
-| GET | `/api/articles/{id}/related` | 관련 기사 | X |
-| GET | `/api/articles/trending` | 트렌딩 | X |
-| GET | `/api/articles/briefing` | AI 브리핑 | X |
-| GET | `/api/articles/popular-keywords` | 인기 검색어 | X |
-| POST | `/api/articles` | 기사 등록 | O (본인 작성자 설정) |
-| PATCH | `/api/articles/{id}` | 기사 수정 | O (작성자만) |
-| DELETE | `/api/articles/{id}` | 기사 삭제 | O (작성자만) |
+- `POST /api/members/signup`
+- `POST /api/members/login`
+- `POST /api/members/logout`
+- `GET /api/members/me`
 
-### 마이페이지 API
+### 기사
 
-| 메서드 | URL | 설명 | 인증 |
-|--------|-----|------|------|
-| GET | `/api/mypage` | 마이페이지 종합 | O |
-| GET | `/api/mypage/saved-article-ids` | 저장한 기사 ID 목록 | O |
-| POST | `/api/mypage/saved-articles/{articleId}` | 기사 저장 | O |
-| DELETE | `/api/mypage/saved-articles/{articleId}` | 기사 저장 취소 | O |
-| POST | `/api/mypage/interests/{category}` | 관심 분야 추가 | O |
-| DELETE | `/api/mypage/interests/{category}` | 관심 분야 삭제 | O |
-| POST | `/api/mypage/read-history/{articleId}` | 읽기 기록 저장 | O |
-| GET | `/api/mypage/read-history` | 읽은 기사 목록 | O |
-| PATCH | `/api/mypage/nickname` | 닉네임 변경 | O |
-| PATCH | `/api/mypage/password` | 비밀번호 변경 | O |
+- `GET /api/articles`
+- `GET /api/articles/{id}`
+- `GET /api/articles/search`
+- `GET /api/articles/recommendations`
+- `GET /api/articles/{id}/related`
+- `GET /api/articles/trending`
+- `GET /api/articles/briefing`
+- `GET /api/articles/popular-keywords`
+- `POST /api/articles/extract`
+- `POST /api/articles`
+- `PATCH /api/articles/{id}`
+- `DELETE /api/articles/{id}`
+- `POST /api/articles/{id}/generate-summary`
 
-### 카테고리 목록
+### 마이페이지
 
-`POLITICS` | `ECONOMY` | `SOCIETY` | `IT_SCIENCE` | `WORLD` | `SPORTS` | `ENTERTAINMENT`
+- `GET /api/mypage`
+- `GET /api/mypage/saved-article-ids`
+- `POST /api/mypage/saved-articles/{articleId}`
+- `DELETE /api/mypage/saved-articles/{articleId}`
+- `POST /api/mypage/interests/{category}`
+- `DELETE /api/mypage/interests/{category}`
+- `POST /api/mypage/read-history/{articleId}`
+- `GET /api/mypage/read-history`
+- `PATCH /api/mypage/nickname`
+- `PATCH /api/mypage/password`
 
-## ERD
+## 카테고리
 
-```
-members (1) ──── (N) saved_articles (N) ──── (1) articles
-   │                                               │
-   ├── (N) member_interests                        ├── (1) article_summaries
-   │                                               │
-   ├── (N) article_read_histories (N) ─────── (1) ─┘
-   │
-   └── (1) ──── (N) articles (writer_id)     search_logs (독립)
-```
+- `POLITICS`
+- `ECONOMY`
+- `SOCIETY`
+- `IT_SCIENCE`
+- `WORLD`
+- `SPORTS`
+- `ENTERTAINMENT`
 
-## 프로젝트 구조
+## 현재 한계
 
-```
-src/main/java/
-├── domain/
-│   ├── common/          # BaseTimeEntity (생성/수정 시간 자동 관리)
-│   ├── member/          # 회원, 저장기사, 관심분야, 읽기기록, 마이페이지
-│   └── news/            # 기사, AI요약, 검색로그, 카테고리
-└── global/
-    ├── config/          # JPA Auditing, PasswordEncoder
-    ├── exception/       # 커스텀 예외, 글로벌 예외 핸들러
-    ├── init/            # 샘플 데이터 초기화
-    └── view/            # 페이지 렌더링
-```
+- 영상 재생은 네이버 플레이어 중심 정책으로 제한되어 있습니다.
+- 기사 추출은 외부 사이트 HTML 구조 변화에 민감합니다.
+- 프론트는 현재 `index.mustache` 중심의 단일 템플릿 구조라, UI 코드가 한 파일에 많이 모여 있습니다.
+- 세션 기반 인증 구조이므로, 추후 운영 배포 단계에서는 HTTPS / 프록시 / 쿠키 설정을 함께 고려해야 합니다.
+
+## 다음 정리 후보
+
+- 프론트 단일 템플릿 분리
+- 테스트를 fixture 기반으로 더 안정화
+- Docker / CI/CD / HTTPS 적용
+- Redis 캐시 등 운영 환경 실험
+
