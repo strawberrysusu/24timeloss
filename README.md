@@ -48,7 +48,7 @@
 | --- | --- |
 | Language | Java 17 |
 | Framework | Spring Boot 4.0.3 |
-| View | Mustache |
+| View | React + Vite (SPA), Spring MVC |
 | ORM | Spring Data JPA / Hibernate |
 | DB | MySQL 8 / H2(Test) |
 | Parsing | Jsoup, Readability4J |
@@ -67,7 +67,7 @@ src/main/java/org/example/newssummaryproject
    ├─ config   # JPA auditing, password encoder 등
    ├─ exception
    ├─ init     # 개발용 시드 데이터
-   └─ view     # index.mustache 진입 페이지
+   └─ view     # React SPA 진입 라우팅
 ```
 
 ## 실행 방법
@@ -75,6 +75,7 @@ src/main/java/org/example/newssummaryproject
 ### 1. 준비물
 
 - Java 17
+- Node.js 20.x 이상
 - MySQL 8.x
 
 ### 2. 데이터베이스 생성
@@ -121,11 +122,43 @@ $env:AI_MOCK_ENABLED="true"
 ./gradlew bootRun
 ```
 
+설명:
+
+- Gradle 실행 시 `frontend/`의 의존성 설치와 React 빌드가 함께 수행됩니다.
+- 처음 실행할 때는 npm 설치 단계 때문에 시간이 조금 더 걸릴 수 있습니다.
+
 실행 후 접속:
 
 - 메인 화면: `http://localhost:8080`
 - Swagger UI: `http://localhost:8080/swagger-ui.html`
 - Health Check: `http://localhost:8080/health`
+
+### 5. 프론트엔드 개발 서버 실행 (선택)
+
+UI를 빠르게 수정할 때는 Vite 개발 서버를 따로 띄울 수 있습니다.
+
+터미널 1:
+
+```bash
+./gradlew bootRun
+```
+
+터미널 2:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Vite 개발 서버 주소:
+
+- `http://localhost:5173`
+
+참고:
+
+- `/api` 요청은 Vite 프록시를 통해 `http://localhost:8080`으로 전달됩니다.
+- 운영/패키징용 정적 파일은 Gradle 빌드 시 `src/main/resources/static/react`에 생성됩니다.
 
 ## 기본 시드 데이터
 
@@ -201,13 +234,12 @@ DB가 비어 있을 때 개발용 데이터가 자동으로 들어갑니다.
 
 - 영상 재생은 네이버 플레이어 중심 정책으로 제한되어 있습니다.
 - 기사 추출은 외부 사이트 HTML 구조 변화에 민감합니다.
-- 프론트는 현재 `index.mustache` 중심의 단일 템플릿 구조라, UI 코드가 한 파일에 많이 모여 있습니다.
+- 프론트는 React SPA로 마이그레이션 중이며, 스타일은 아직 기존 CSS 자산을 함께 사용합니다.
 - 세션 기반 인증 구조이므로, 추후 운영 배포 단계에서는 HTTPS / 프록시 / 쿠키 설정을 함께 고려해야 합니다.
 
 ## 다음 정리 후보
 
-- 프론트 단일 템플릿 분리
+- React 스타일 구조 정리
 - 테스트를 fixture 기반으로 더 안정화
 - Docker / CI/CD / HTTPS 적용
 - Redis 캐시 등 운영 환경 실험
-

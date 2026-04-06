@@ -44,3 +44,12 @@ out/
 ### 디버그용 HTML 파일 ###
 naver_*.html
 tmp_naver_*.html
+
+frontend/node_modules/
+frontend/dist/
+src/main/resources/static/react/
+
+### mise (rtx) ###
+mise.toml
+.mise.toml
+.mise.local.toml
