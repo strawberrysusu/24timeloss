@@ -6,6 +6,7 @@ import {
   getArticleDetail,
   getRelatedArticles,
 } from "../../shared/api/articles";
+import { isAuthenticationError } from "../../shared/api/http";
 import { recordReadHistory } from "../../shared/api/members";
 import type { ArticleCardData, ArticleDetailData } from "../../shared/types/article";
 
@@ -78,7 +79,7 @@ export function useDetailPageData({
       const nextArticle = await generateArticleSummary(articleId);
       setArticle(nextArticle);
     } catch (error) {
-      if (error instanceof Error && error.message.includes("로그인")) {
+      if (isAuthenticationError(error)) {
         onAuthenticationRequired();
         return;
       }
@@ -91,7 +92,7 @@ export function useDetailPageData({
       await deleteArticle(articleId);
       onDeleted();
     } catch (error) {
-      if (error instanceof Error && error.message.includes("로그인")) {
+      if (isAuthenticationError(error)) {
         onAuthenticationRequired();
         return;
       }

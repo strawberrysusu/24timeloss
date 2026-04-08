@@ -9,6 +9,7 @@ import {
   updatePassword,
   addInterest,
 } from "../../shared/api/members";
+import { isAuthenticationError } from "../../shared/api/http";
 import type { Category } from "../../shared/constants/categories";
 import type { ReadHistoryItem } from "../../shared/types/article";
 import type { CurrentUser, MyPageData } from "../../shared/types/member";
@@ -97,7 +98,7 @@ export function useMyPageData({
         setData({ ...data, interests: [...data.interests, category] });
       }
     } catch (error) {
-      if (error instanceof Error && error.message.includes("로그인")) {
+      if (isAuthenticationError(error)) {
         onAuthenticationRequired();
         return;
       }
@@ -111,7 +112,7 @@ export function useMyPageData({
       await refresh();
       await onSavedArticlesChanged();
     } catch (error) {
-      if (error instanceof Error && error.message.includes("로그인")) {
+      if (isAuthenticationError(error)) {
         onAuthenticationRequired();
         return;
       }
@@ -125,7 +126,7 @@ export function useMyPageData({
       onUserUpdated(user);
       await refresh();
     } catch (error) {
-      if (error instanceof Error && error.message.includes("로그인")) {
+      if (isAuthenticationError(error)) {
         onAuthenticationRequired();
         return;
       }
@@ -137,7 +138,7 @@ export function useMyPageData({
     try {
       await updatePassword(currentPassword, newPassword);
     } catch (error) {
-      if (error instanceof Error && error.message.includes("로그인")) {
+      if (isAuthenticationError(error)) {
         onAuthenticationRequired();
         return;
       }
