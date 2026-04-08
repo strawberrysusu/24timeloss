@@ -59,8 +59,10 @@ export function DetailRoute({
         relatedArticles={detail.relatedArticles}
         currentUser={currentUser}
         savedArticleIds={savedArticleIds}
-        loading={detail.loading}
-        errorMessage={detail.errorMessage}
+        articleLoading={detail.isArticleLoading}
+        articleErrorMessage={detail.articleErrorMessage}
+        relatedLoading={detail.isRelatedLoading}
+        relatedErrorMessage={detail.relatedErrorMessage}
         onHomeClick={() => navigate("/")}
         onCategoryClick={() => navigate("/")}
         onToggleSave={onToggleSave}

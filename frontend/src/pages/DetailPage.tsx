@@ -9,8 +9,10 @@ interface DetailPageProps {
   relatedArticles: ArticleCardData[];
   currentUser: CurrentUser | null;
   savedArticleIds: Set<number>;
-  loading?: boolean;
-  errorMessage?: string;
+  articleLoading?: boolean;
+  articleErrorMessage?: string;
+  relatedLoading?: boolean;
+  relatedErrorMessage?: string;
   onHomeClick: () => void;
   onCategoryClick: () => void;
   onToggleSave: (articleId: number) => void;
@@ -25,8 +27,10 @@ export function DetailPage({
   relatedArticles,
   currentUser,
   savedArticleIds,
-  loading = false,
-  errorMessage = "",
+  articleLoading = false,
+  articleErrorMessage = "",
+  relatedLoading = false,
+  relatedErrorMessage = "",
   onHomeClick,
   onCategoryClick,
   onToggleSave,
@@ -40,9 +44,9 @@ export function DetailPage({
       <DetailBreadcrumb article={article} onHomeClick={onHomeClick} onCategoryClick={onCategoryClick} />
       <div className="container">
         <div className="detail-grid">
-          {loading ? <article id="article-detail"><div className="loading-msg">기사를 불러오는 중...</div></article> : null}
-          {!loading && errorMessage ? <article id="article-detail"><div className="loading-msg">{errorMessage}</div></article> : null}
-          {!loading && !errorMessage ? (
+          {articleLoading ? <article id="article-detail"><div className="loading-msg">기사를 불러오는 중...</div></article> : null}
+          {!articleLoading && articleErrorMessage ? <article id="article-detail"><div className="loading-msg">{articleErrorMessage}</div></article> : null}
+          {!articleLoading && !articleErrorMessage ? (
             <ArticleDetailSection
               article={article}
               currentUser={currentUser}
@@ -53,7 +57,12 @@ export function DetailPage({
               onDeleteArticle={onDeleteArticle}
             />
           ) : null}
-          <RelatedNewsSection articles={relatedArticles} onArticleClick={onArticleClick} />
+          <RelatedNewsSection
+            articles={relatedArticles}
+            loading={relatedLoading}
+            errorMessage={relatedErrorMessage}
+            onArticleClick={onArticleClick}
+          />
         </div>
       </div>
     </div>

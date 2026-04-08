@@ -4,17 +4,23 @@ import type { ArticleCardData } from "../../shared/types/article";
 
 interface RelatedNewsSectionProps {
   articles: ArticleCardData[];
+  loading?: boolean;
+  errorMessage?: string;
   onArticleClick: (articleId: number) => void;
 }
 
 export function RelatedNewsSection({
   articles,
+  loading = false,
+  errorMessage = "",
   onArticleClick,
 }: RelatedNewsSectionProps) {
   return (
     <aside className="related-news" id="related-news">
       <h3 className="related-title">관련 뉴스</h3>
-      {articles.length === 0 ? <p className="loading-msg">관련 뉴스가 없습니다.</p> : null}
+      {loading ? <p className="loading-msg">관련 뉴스를 불러오는 중...</p> : null}
+      {!loading && errorMessage ? <p className="loading-msg">{errorMessage}</p> : null}
+      {!loading && !errorMessage && articles.length === 0 ? <p className="loading-msg">관련 뉴스가 없습니다.</p> : null}
       {articles.map((article) => (
         <button
           key={article.id}
