@@ -43,17 +43,37 @@ jobs:
               exit 1
             fi
 
-            docker compose up -d --build --remove-orphans
+            APP_HOST=$(grep '^APP_HOST=' .env | cut -d '=' -f 2- | tr -d '\r')
+            if [ -z "$APP_HOST" ]; then
+              echo "APP_HOST is missing in .env"
+              exit 1
+            fi
 
-            echo "Waiting for health check..."
-            for i in 1 2 3 4 5 6; do
-              if curl --fail --silent http://localhost:8080/health > /dev/null; then
-                docker compose ps
+            docker compose -f docker-compose.prod.yml up -d --build db app nginx --remove-orphans
+
+            if [ ! -f "$HOME/24timeloss/.prod-certs-ready" ]; then
+              docker compose -f docker-compose.prod.yml run --rm --entrypoint certbot certbot \
+                certonly --webroot -w /var/www/certbot \
+                -d "$APP_HOST" \
+                --non-interactive \
+                --agree-tos \
+                --register-unsafely-without-email
+
+              touch "$HOME/24timeloss/.prod-certs-ready"
+            fi
+
+            docker compose -f docker-compose.prod.yml restart nginx
+            docker compose -f docker-compose.prod.yml up -d certbot --remove-orphans
+
+            echo "Waiting for HTTPS health check..."
+            for i in 1 2 3 4 5 6 7 8 9; do
+              if curl --fail --silent --resolve "$APP_HOST:443:127.0.0.1" "https://$APP_HOST/health" > /dev/null; then
+                docker compose -f docker-compose.prod.yml ps
                 exit 0
               fi
               sleep 10
             done
 
-            docker compose ps
+            docker compose -f docker-compose.prod.yml ps
             echo "Health check failed"
             exit 1
