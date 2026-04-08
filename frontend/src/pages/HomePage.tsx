@@ -11,9 +11,13 @@ interface HomePageProps {
   categories: readonly { label: string; value: Category | null }[];
   trendingKeywords: string[];
   articles: ArticleCardData[];
+  isFeedLoading: boolean;
+  isLoadingMore: boolean;
+  feedErrorMessage: string;
   isLastPage: boolean;
   briefingText: string;
   briefingTimeLabel: string;
+  sidebarErrorMessage: string;
   trendingArticles: ArticleCardData[];
   activeInterests: Category[];
   savedArticleIds: Set<number>;
@@ -46,6 +50,9 @@ export function HomePage(props: HomePageProps) {
         <div className="main-grid">
           <NewsFeedSection
             articles={props.articles}
+            isLoading={props.isFeedLoading}
+            isLoadingMore={props.isLoadingMore}
+            errorMessage={props.feedErrorMessage}
             isLastPage={props.isLastPage}
             savedArticleIds={props.savedArticleIds}
             onArticleClick={props.onArticleClick}
@@ -55,6 +62,7 @@ export function HomePage(props: HomePageProps) {
           <HomeSidebar
             briefingText={props.briefingText}
             briefingTimeLabel={props.briefingTimeLabel}
+            errorMessage={props.sidebarErrorMessage}
             trendingArticles={props.trendingArticles}
             activeInterests={props.activeInterests}
             onArticleClick={props.onArticleClick}

@@ -4,6 +4,9 @@ import { formatDate } from "../../shared/utils/format";
 
 interface NewsFeedSectionProps {
   articles: ArticleCardData[];
+  isLoading: boolean;
+  isLoadingMore: boolean;
+  errorMessage: string;
   isLastPage: boolean;
   savedArticleIds: Set<number>;
   onArticleClick: (articleId: number) => void;
@@ -13,6 +16,9 @@ interface NewsFeedSectionProps {
 
 export function NewsFeedSection({
   articles,
+  isLoading,
+  isLoadingMore,
+  errorMessage,
   isLastPage,
   savedArticleIds,
   onArticleClick,
@@ -21,7 +27,9 @@ export function NewsFeedSection({
 }: NewsFeedSectionProps) {
   return (
     <section className="news-feed" id="news-feed">
-      {articles.length === 0 ? <p className="loading-msg">표시할 기사가 없습니다.</p> : null}
+      {isLoading ? <p className="loading-msg">기사를 불러오는 중...</p> : null}
+      {!isLoading && errorMessage ? <p className="loading-msg">{errorMessage}</p> : null}
+      {!isLoading && !errorMessage && articles.length === 0 ? <p className="loading-msg">표시할 기사가 없습니다.</p> : null}
       {articles.map((article) => {
         const isSaved = savedArticleIds.has(article.id);
         return (
@@ -82,8 +90,8 @@ export function NewsFeedSection({
         );
       })}
       {isLastPage ? null : (
-        <button className="btn btn-ghost btn-md load-more-btn" onClick={onLoadMore}>
-          더보기
+        <button className="btn btn-ghost btn-md load-more-btn" onClick={onLoadMore} disabled={isLoadingMore}>
+          {isLoadingMore ? "불러오는 중..." : "더보기"}
         </button>
       )}
     </section>

@@ -5,6 +5,7 @@ import type { ArticleCardData } from "../../shared/types/article";
 interface HomeSidebarProps {
   briefingText: string;
   briefingTimeLabel: string;
+  errorMessage: string;
   trendingArticles: ArticleCardData[];
   activeInterests: Category[];
   onArticleClick: (articleId: number) => void;
@@ -14,6 +15,7 @@ interface HomeSidebarProps {
 export function HomeSidebar({
   briefingText,
   briefingTimeLabel,
+  errorMessage,
   trendingArticles,
   activeInterests,
   onArticleClick,
@@ -31,6 +33,7 @@ export function HomeSidebar({
           <span className="sidebar-time">{briefingTimeLabel}</span>
         </div>
         <p className="briefing-text">{briefingText}</p>
+        {errorMessage ? <p className="loading-msg" style={{ padding: "12px 0 0", color: "rgba(255, 255, 255, 0.82)" }}>{errorMessage}</p> : null}
       </div>
 
       <div className="sidebar-card">

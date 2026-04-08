@@ -29,9 +29,13 @@ export function HomeRoute({
       categories={home.categories}
       trendingKeywords={home.trendingKeywords}
       articles={home.articles}
+      isFeedLoading={home.isFeedLoading}
+      isLoadingMore={home.isLoadingMore}
+      feedErrorMessage={home.feedErrorMessage}
       isLastPage={home.isLastPage}
       briefingText={home.briefingText}
       briefingTimeLabel={home.briefingTimeLabel}
+      sidebarErrorMessage={home.sidebarErrorMessage}
       trendingArticles={home.trendingArticles}
       activeInterests={activeInterests}
       savedArticleIds={home.savedArticleIds}
