@@ -1,8 +1,10 @@
 package org.example.newssummaryproject.domain.news;
 
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
+@Tag("integration")
 class ArticleExtractServiceTest {
 
     private final ArticleExtractService service = new ArticleExtractService();

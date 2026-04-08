@@ -5,7 +5,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -36,9 +35,18 @@ class ArticleControllerTest {
     private Article article1;
     private Article article2;
 
+    /** 회원가입하고 JWT 토큰을 반환하는 헬퍼 */
+    private String signupAndGetToken(String email, String nickname) throws Exception {
+        MvcResult result = mockMvc.perform(post("/api/members/signup")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"" + email + "\",\"password\":\"1234\",\"nickname\":\"" + nickname + "\"}"))
+                .andExpect(status().isCreated())
+                .andReturn();
+        return JsonPath.read(result.getResponse().getContentAsString(), "$.token");
+    }
+
     @BeforeEach
     void setUp() {
-        // writer 없는 기사 (시스템 등록 기사 — 조회 테스트용)
         article1 = articleRepository.save(Article.builder()
                 .category(Category.IT_SCIENCE)
                 .title("AI 신기술 발표")
@@ -59,22 +67,22 @@ class ArticleControllerTest {
     }
 
     /**
-     * 회원가입 후 기사를 등록하고, 등록된 기사 ID를 반환하는 헬퍼 메서드다.
+     * 회원가입 후 기사를 등록하고, 토큰과 기사 ID를 반환하는 헬퍼 메서드다.
      */
-    private Long signupAndCreateArticle(MockHttpSession session, String email, String nickname) throws Exception {
-        mockMvc.perform(post("/api/members/signup")
-                .session(session)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"email\":\"" + email + "\",\"password\":\"1234\",\"nickname\":\"" + nickname + "\"}"));
+    private record AuthAndArticle(String token, Long articleId) {}
+
+    private AuthAndArticle signupAndCreateArticle(String email, String nickname) throws Exception {
+        String token = signupAndGetToken(email, nickname);
 
         MvcResult result = mockMvc.perform(post("/api/articles")
-                        .session(session)
+                        .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"category\":\"ECONOMY\",\"title\":\"내가 쓴 기사\",\"content\":\"본문 내용이며 충분히 길어야 합니다\",\"source\":\"테스트\"}"))
                 .andExpect(status().isCreated())
                 .andReturn();
 
-        return ((Number) JsonPath.read(result.getResponse().getContentAsString(), "$.id")).longValue();
+        Long articleId = ((Number) JsonPath.read(result.getResponse().getContentAsString(), "$.id")).longValue();
+        return new AuthAndArticle(token, articleId);
     }
 
     // ── 기사 조회 ──
@@ -202,14 +210,10 @@ class ArticleControllerTest {
 
     @Test
     void 기사_등록_성공() throws Exception {
-        MockHttpSession session = new MockHttpSession();
-        mockMvc.perform(post("/api/members/signup")
-                .session(session)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"email\":\"writer@test.com\",\"password\":\"1234\",\"nickname\":\"작성자\"}"));
+        String token = signupAndGetToken("writer@test.com", "작성자");
 
         mockMvc.perform(post("/api/articles")
-                        .session(session)
+                        .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"category\":\"ECONOMY\",\"title\":\"테스트 등록 기사\",\"content\":\"등록 본문이며 10자 이상입니다\",\"source\":\"테스트\"}"))
                 .andExpect(status().isCreated())
@@ -220,14 +224,10 @@ class ArticleControllerTest {
 
     @Test
     void 기사_등록_원문URL_없으면_null() throws Exception {
-        MockHttpSession session = new MockHttpSession();
-        mockMvc.perform(post("/api/members/signup")
-                .session(session)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"email\":\"nourl@test.com\",\"password\":\"1234\",\"nickname\":\"작성자2\"}"));
+        String token = signupAndGetToken("nourl@test.com", "작성자2");
 
         mockMvc.perform(post("/api/articles")
-                        .session(session)
+                        .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"category\":\"IT_SCIENCE\",\"title\":\"URL 없는 기사\",\"content\":\"본문 내용이며 충분히 길어야 합니다\"}"))
                 .andExpect(status().isCreated())
@@ -245,14 +245,10 @@ class ArticleControllerTest {
 
     @Test
     void 기사_등록_제목없으면_400() throws Exception {
-        MockHttpSession session = new MockHttpSession();
-        mockMvc.perform(post("/api/members/signup")
-                .session(session)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"email\":\"admin2@test.com\",\"password\":\"1234\",\"nickname\":\"관리자2\"}"));
+        String token = signupAndGetToken("admin2@test.com", "관리자2");
 
         mockMvc.perform(post("/api/articles")
-                        .session(session)
+                        .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"category\":\"ECONOMY\",\"title\":\"\",\"content\":\"본문 내용이며 10자 이상입니다\"}"))
                 .andExpect(status().isBadRequest())
@@ -261,14 +257,10 @@ class ArticleControllerTest {
 
     @Test
     void 기사_등록_본문짧으면_400() throws Exception {
-        MockHttpSession session = new MockHttpSession();
-        mockMvc.perform(post("/api/members/signup")
-                .session(session)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"email\":\"admin3@test.com\",\"password\":\"1234\",\"nickname\":\"관리자3\"}"));
+        String token = signupAndGetToken("admin3@test.com", "관리자3");
 
         mockMvc.perform(post("/api/articles")
-                        .session(session)
+                        .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"category\":\"ECONOMY\",\"title\":\"정상 제목\",\"content\":\"짧음\"}"))
                 .andExpect(status().isBadRequest())
@@ -279,11 +271,10 @@ class ArticleControllerTest {
 
     @Test
     void 기사_수정_성공() throws Exception {
-        MockHttpSession session = new MockHttpSession();
-        Long articleId = signupAndCreateArticle(session, "editor@test.com", "수정자");
+        var auth = signupAndCreateArticle("editor@test.com", "수정자");
 
-        mockMvc.perform(patch("/api/articles/" + articleId)
-                        .session(session)
+        mockMvc.perform(patch("/api/articles/" + auth.articleId())
+                        .header("Authorization", "Bearer " + auth.token())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"title\":\"수정된 제목입니다\",\"content\":\"수정된 본문이며 충분히 길어야 합니다\"}"))
                 .andExpect(status().isOk())
@@ -294,16 +285,13 @@ class ArticleControllerTest {
 
     @Test
     void 기사_수정_출처_빈값으로_삭제() throws Exception {
-        MockHttpSession session = new MockHttpSession();
-        Long articleId = signupAndCreateArticle(session, "clr@test.com", "삭제테스트");
+        var auth = signupAndCreateArticle("clr@test.com", "삭제테스트");
 
-        // source가 "테스트"로 등록되어 있다
-        mockMvc.perform(get("/api/articles/" + articleId))
+        mockMvc.perform(get("/api/articles/" + auth.articleId()))
                 .andExpect(jsonPath("$.source").value("테스트"));
 
-        // source를 빈 문자열로 보내면 삭제된다
-        mockMvc.perform(patch("/api/articles/" + articleId)
-                        .session(session)
+        mockMvc.perform(patch("/api/articles/" + auth.articleId())
+                        .header("Authorization", "Bearer " + auth.token())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"source\":\"\"}"))
                 .andExpect(status().isOk())
@@ -312,11 +300,10 @@ class ArticleControllerTest {
 
     @Test
     void 기사_수정_카테고리만_변경() throws Exception {
-        MockHttpSession session = new MockHttpSession();
-        Long articleId = signupAndCreateArticle(session, "cat@test.com", "카테수정");
+        var auth = signupAndCreateArticle("cat@test.com", "카테수정");
 
-        mockMvc.perform(patch("/api/articles/" + articleId)
-                        .session(session)
+        mockMvc.perform(patch("/api/articles/" + auth.articleId())
+                        .header("Authorization", "Bearer " + auth.token())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"category\":\"IT_SCIENCE\"}"))
                 .andExpect(status().isOk())
@@ -334,19 +321,12 @@ class ArticleControllerTest {
 
     @Test
     void 다른_사람_기사_수정_403() throws Exception {
-        // 작성자 A가 기사 등록
-        MockHttpSession sessionA = new MockHttpSession();
-        Long articleId = signupAndCreateArticle(sessionA, "ownerA@test.com", "작성자A");
+        var authA = signupAndCreateArticle("ownerA@test.com", "작성자A");
 
-        // 다른 사람 B가 수정 시도
-        MockHttpSession sessionB = new MockHttpSession();
-        mockMvc.perform(post("/api/members/signup")
-                .session(sessionB)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"email\":\"otherB@test.com\",\"password\":\"1234\",\"nickname\":\"타인B\"}"));
+        String tokenB = signupAndGetToken("otherB@test.com", "타인B");
 
-        mockMvc.perform(patch("/api/articles/" + articleId)
-                        .session(sessionB)
+        mockMvc.perform(patch("/api/articles/" + authA.articleId())
+                        .header("Authorization", "Bearer " + tokenB)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"title\":\"남의 기사 수정 시도\"}"))
                 .andExpect(status().isForbidden())
@@ -356,15 +336,10 @@ class ArticleControllerTest {
 
     @Test
     void 시스템_기사_수정_403() throws Exception {
-        // writer가 없는 시스템 기사는 누구도 수정할 수 없다
-        MockHttpSession session = new MockHttpSession();
-        mockMvc.perform(post("/api/members/signup")
-                .session(session)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"email\":\"sys@test.com\",\"password\":\"1234\",\"nickname\":\"시스템\"}"));
+        String token = signupAndGetToken("sys@test.com", "시스템");
 
         mockMvc.perform(patch("/api/articles/" + article1.getId())
-                        .session(session)
+                        .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"title\":\"시스템 기사 수정 시도\"}"))
                 .andExpect(status().isForbidden());
@@ -374,14 +349,13 @@ class ArticleControllerTest {
 
     @Test
     void 기사_삭제_성공() throws Exception {
-        MockHttpSession session = new MockHttpSession();
-        Long articleId = signupAndCreateArticle(session, "del@test.com", "삭제자");
+        var auth = signupAndCreateArticle("del@test.com", "삭제자");
 
-        mockMvc.perform(delete("/api/articles/" + articleId).session(session))
+        mockMvc.perform(delete("/api/articles/" + auth.articleId())
+                        .header("Authorization", "Bearer " + auth.token()))
                 .andExpect(status().isNoContent());
 
-        // 삭제된 기사 조회 시 404
-        mockMvc.perform(get("/api/articles/" + articleId))
+        mockMvc.perform(get("/api/articles/" + auth.articleId()))
                 .andExpect(status().isNotFound());
     }
 
@@ -393,49 +367,39 @@ class ArticleControllerTest {
 
     @Test
     void 존재하지않는_기사_삭제_404() throws Exception {
-        MockHttpSession session = new MockHttpSession();
-        mockMvc.perform(post("/api/members/signup")
-                .session(session)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"email\":\"del2@test.com\",\"password\":\"1234\",\"nickname\":\"삭제자2\"}"));
+        String token = signupAndGetToken("del2@test.com", "삭제자2");
 
-        mockMvc.perform(delete("/api/articles/999999").session(session))
+        mockMvc.perform(delete("/api/articles/999999")
+                        .header("Authorization", "Bearer " + token))
                 .andExpect(status().isNotFound());
     }
 
     @Test
     void 다른_사람_기사_삭제_403() throws Exception {
-        // 작성자 A가 기사 등록
-        MockHttpSession sessionA = new MockHttpSession();
-        Long articleId = signupAndCreateArticle(sessionA, "ownerC@test.com", "작성자C");
+        var authC = signupAndCreateArticle("ownerC@test.com", "작성자C");
 
-        // 다른 사람 D가 삭제 시도
-        MockHttpSession sessionD = new MockHttpSession();
-        mockMvc.perform(post("/api/members/signup")
-                .session(sessionD)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"email\":\"otherD@test.com\",\"password\":\"1234\",\"nickname\":\"타인D\"}"));
+        String tokenD = signupAndGetToken("otherD@test.com", "타인D");
 
-        mockMvc.perform(delete("/api/articles/" + articleId).session(sessionD))
+        mockMvc.perform(delete("/api/articles/" + authC.articleId())
+                        .header("Authorization", "Bearer " + tokenD))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("FORBIDDEN"));
     }
 
     @Test
     void 저장된_기사_삭제시_저장기록도_삭제() throws Exception {
-        MockHttpSession session = new MockHttpSession();
-        Long articleId = signupAndCreateArticle(session, "cascade@test.com", "캐스케이드");
+        var auth = signupAndCreateArticle("cascade@test.com", "캐스케이드");
 
-        // 기사 저장
-        mockMvc.perform(post("/api/mypage/saved-articles/" + articleId).session(session))
+        mockMvc.perform(post("/api/mypage/saved-articles/" + auth.articleId())
+                        .header("Authorization", "Bearer " + auth.token()))
                 .andExpect(status().isOk());
 
-        // 기사 삭제 (본인이 작성한 기사이므로 성공)
-        mockMvc.perform(delete("/api/articles/" + articleId).session(session))
+        mockMvc.perform(delete("/api/articles/" + auth.articleId())
+                        .header("Authorization", "Bearer " + auth.token()))
                 .andExpect(status().isNoContent());
 
-        // 저장 목록에서 제거 확인
-        mockMvc.perform(get("/api/mypage/saved-article-ids").session(session))
+        mockMvc.perform(get("/api/mypage/saved-article-ids")
+                        .header("Authorization", "Bearer " + auth.token()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$").isEmpty());
     }
@@ -444,12 +408,10 @@ class ArticleControllerTest {
 
     @Test
     void AI_요약_생성_성공() throws Exception {
-        MockHttpSession session = new MockHttpSession();
-        Long articleId = signupAndCreateArticle(session, "ai@test.com", "AI테스터");
+        var auth = signupAndCreateArticle("ai@test.com", "AI테스터");
 
-        // 요약 생성
-        mockMvc.perform(post("/api/articles/" + articleId + "/generate-summary")
-                        .session(session))
+        mockMvc.perform(post("/api/articles/" + auth.articleId() + "/generate-summary")
+                        .header("Authorization", "Bearer " + auth.token()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.summary").exists())
                 .andExpect(jsonPath("$.summary.summaryLine1").isNotEmpty())
@@ -462,21 +424,17 @@ class ArticleControllerTest {
 
     @Test
     void AI_요약_생성후_상세조회시_요약_포함() throws Exception {
-        MockHttpSession session = new MockHttpSession();
-        Long articleId = signupAndCreateArticle(session, "ai2@test.com", "AI테스터2");
+        var auth = signupAndCreateArticle("ai2@test.com", "AI테스터2");
 
-        // 요약 생성 전에는 summary가 null
-        mockMvc.perform(get("/api/articles/" + articleId))
+        mockMvc.perform(get("/api/articles/" + auth.articleId()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.summary").doesNotExist());
 
-        // 요약 생성
-        mockMvc.perform(post("/api/articles/" + articleId + "/generate-summary")
-                        .session(session))
+        mockMvc.perform(post("/api/articles/" + auth.articleId() + "/generate-summary")
+                        .header("Authorization", "Bearer " + auth.token()))
                 .andExpect(status().isOk());
 
-        // 요약 생성 후에는 summary가 존재
-        mockMvc.perform(get("/api/articles/" + articleId))
+        mockMvc.perform(get("/api/articles/" + auth.articleId()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.summary").exists())
                 .andExpect(jsonPath("$.summary.summaryLine1").isNotEmpty());
@@ -484,17 +442,14 @@ class ArticleControllerTest {
 
     @Test
     void AI_요약_재생성_덮어쓰기() throws Exception {
-        MockHttpSession session = new MockHttpSession();
-        Long articleId = signupAndCreateArticle(session, "ai3@test.com", "AI테스터3");
+        var auth = signupAndCreateArticle("ai3@test.com", "AI테스터3");
 
-        // 첫 번째 요약 생성
-        mockMvc.perform(post("/api/articles/" + articleId + "/generate-summary")
-                        .session(session))
+        mockMvc.perform(post("/api/articles/" + auth.articleId() + "/generate-summary")
+                        .header("Authorization", "Bearer " + auth.token()))
                 .andExpect(status().isOk());
 
-        // 두 번째 요약 생성 (덮어쓰기) — 에러 없이 성공해야 한다
-        mockMvc.perform(post("/api/articles/" + articleId + "/generate-summary")
-                        .session(session))
+        mockMvc.perform(post("/api/articles/" + auth.articleId() + "/generate-summary")
+                        .header("Authorization", "Bearer " + auth.token()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.summary").exists());
     }
@@ -508,45 +463,32 @@ class ArticleControllerTest {
 
     @Test
     void 다른_회원_기사_AI_요약_생성_403() throws Exception {
-        MockHttpSession ownerSession = new MockHttpSession();
-        Long articleId = signupAndCreateArticle(ownerSession, "ai-owner@test.com", "AI작성자");
+        var authOwner = signupAndCreateArticle("ai-owner@test.com", "AI작성자");
 
-        MockHttpSession otherSession = new MockHttpSession();
-        mockMvc.perform(post("/api/members/signup")
-                .session(otherSession)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"email\":\"ai-other@test.com\",\"password\":\"1234\",\"nickname\":\"다른회원\"}"));
+        String otherToken = signupAndGetToken("ai-other@test.com", "다른회원");
 
-        mockMvc.perform(post("/api/articles/" + articleId + "/generate-summary")
-                        .session(otherSession))
+        mockMvc.perform(post("/api/articles/" + authOwner.articleId() + "/generate-summary")
+                        .header("Authorization", "Bearer " + otherToken))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("FORBIDDEN"));
     }
 
     @Test
     void 작성자_없는_기사_AI_요약_생성_403() throws Exception {
-        MockHttpSession session = new MockHttpSession();
-        mockMvc.perform(post("/api/members/signup")
-                .session(session)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"email\":\"ai5@test.com\",\"password\":\"1234\",\"nickname\":\"AI테스터5\"}"));
+        String token = signupAndGetToken("ai5@test.com", "AI테스터5");
 
         mockMvc.perform(post("/api/articles/" + article1.getId() + "/generate-summary")
-                        .session(session))
+                        .header("Authorization", "Bearer " + token))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("FORBIDDEN"));
     }
 
     @Test
     void 존재하지않는_기사_AI_요약_404() throws Exception {
-        MockHttpSession session = new MockHttpSession();
-        mockMvc.perform(post("/api/members/signup")
-                .session(session)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"email\":\"ai4@test.com\",\"password\":\"1234\",\"nickname\":\"AI테스터4\"}"));
+        String token = signupAndGetToken("ai4@test.com", "AI테스터4");
 
         mockMvc.perform(post("/api/articles/999999/generate-summary")
-                        .session(session))
+                        .header("Authorization", "Bearer " + token))
                 .andExpect(status().isNotFound());
     }
 
@@ -569,9 +511,7 @@ class ArticleControllerTest {
                 .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
 
         // 409 — DUPLICATE (이메일 중복)
-        mockMvc.perform(post("/api/members/signup")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"email\":\"dup@test.com\",\"password\":\"1234\",\"nickname\":\"원본\"}"));
+        signupAndGetToken("dup@test.com", "원본");
         mockMvc.perform(post("/api/members/signup")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"email\":\"dup@test.com\",\"password\":\"5678\",\"nickname\":\"복사\"}"))
@@ -588,13 +528,9 @@ class ArticleControllerTest {
                 .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
 
         // 403 — FORBIDDEN (다른 사람 기사 수정)
-        MockHttpSession session = new MockHttpSession();
-        mockMvc.perform(post("/api/members/signup")
-                .session(session)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"email\":\"err403@test.com\",\"password\":\"1234\",\"nickname\":\"에러검증\"}"));
+        String token = signupAndGetToken("err403@test.com", "에러검증");
         mockMvc.perform(patch("/api/articles/" + article1.getId())
-                        .session(session)
+                        .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"title\":\"권한없는 수정\"}"))
                 .andExpect(status().isForbidden())
