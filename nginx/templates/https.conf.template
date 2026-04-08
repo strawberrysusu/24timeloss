@@ -1,6 +1,6 @@
 server {
     listen 80;
-    server_name ${APP_HOST};
+    server_name __APP_HOST__;
 
     location /.well-known/acme-challenge/ {
         root /var/www/certbot;
@@ -13,10 +13,10 @@ server {
 
 server {
     listen 443 ssl;
-    server_name ${APP_HOST};
+    server_name __APP_HOST__;
 
-    ssl_certificate     /etc/letsencrypt/live/${APP_HOST}/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/${APP_HOST}/privkey.pem;
+    ssl_certificate     /etc/letsencrypt/live/__APP_HOST__/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/__APP_HOST__/privkey.pem;
 
     ssl_protocols TLSv1.2 TLSv1.3;
     ssl_ciphers HIGH:!aNULL:!MD5;
