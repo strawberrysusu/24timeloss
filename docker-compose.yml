@@ -5,6 +5,7 @@
 services:
   db:
     image: mysql:8.0
+    restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-newspick1234}
       MYSQL_DATABASE: newspick
@@ -21,6 +22,7 @@ services:
 
   app:
     build: .
+    restart: unless-stopped
     ports:
       - "8080:8080"
     environment:
