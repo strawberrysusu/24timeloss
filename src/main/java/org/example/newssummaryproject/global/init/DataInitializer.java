@@ -11,6 +11,7 @@ import org.example.newssummaryproject.domain.news.Category;
 import org.example.newssummaryproject.domain.news.SummarySource;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.context.annotation.Profile;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
@@ -21,6 +22,7 @@ import java.time.LocalDateTime;
  * 기사가 하나도 없을 때만 동작한다.
  */
 @Component
+@Profile("dev")
 @RequiredArgsConstructor
 public class DataInitializer implements ApplicationRunner {
 
