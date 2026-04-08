@@ -25,38 +25,53 @@ export function useDetailPageData({
 }: UseDetailPageDataOptions) {
   const [article, setArticle] = useState<ArticleDetailData | null>(null);
   const [relatedArticles, setRelatedArticles] = useState<ArticleCardData[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [errorMessage, setErrorMessage] = useState("");
+  const [isArticleLoading, setIsArticleLoading] = useState(true);
+  const [articleErrorMessage, setArticleErrorMessage] = useState("");
+  const [isRelatedLoading, setIsRelatedLoading] = useState(true);
+  const [relatedErrorMessage, setRelatedErrorMessage] = useState("");
   const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
 
     async function load() {
-      setLoading(true);
-      setErrorMessage("");
+      setIsArticleLoading(true);
+      setArticleErrorMessage("");
+      setIsRelatedLoading(true);
+      setRelatedErrorMessage("");
 
-      try {
-        const [articleResult, relatedResult] = await Promise.all([
-          getArticleDetail(articleId),
-          getRelatedArticles(articleId),
-        ]);
+      const [articleResult, relatedResult] = await Promise.allSettled([
+        getArticleDetail(articleId),
+        getRelatedArticles(articleId),
+      ]);
 
-        if (!cancelled) {
-          setArticle(articleResult);
-          setRelatedArticles(relatedResult);
-        }
-      } catch (error) {
-        if (!cancelled) {
-          setErrorMessage(error instanceof Error ? error.message : "기사를 불러오지 못했습니다.");
-          setArticle(null);
-          setRelatedArticles([]);
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
+      if (cancelled) {
+        return;
       }
+
+      if (articleResult.status === "fulfilled") {
+        setArticle(articleResult.value);
+      } else {
+        setArticle(null);
+        setArticleErrorMessage(
+          articleResult.reason instanceof Error
+            ? articleResult.reason.message
+            : "기사를 불러오지 못했습니다.",
+        );
+      }
+      setIsArticleLoading(false);
+
+      if (relatedResult.status === "fulfilled") {
+        setRelatedArticles(relatedResult.value);
+      } else {
+        setRelatedArticles([]);
+        setRelatedErrorMessage(
+          relatedResult.reason instanceof Error
+            ? relatedResult.reason.message
+            : "관련 뉴스를 불러오지 못했습니다.",
+        );
+      }
+      setIsRelatedLoading(false);
     }
 
     void load();
@@ -83,7 +98,7 @@ export function useDetailPageData({
         onAuthenticationRequired();
         return;
       }
-      setErrorMessage(error instanceof Error ? error.message : "AI 요약 생성에 실패했습니다.");
+      setArticleErrorMessage(error instanceof Error ? error.message : "AI 요약 생성에 실패했습니다.");
     }
   }
 
@@ -96,15 +111,17 @@ export function useDetailPageData({
         onAuthenticationRequired();
         return;
       }
-      setErrorMessage(error instanceof Error ? error.message : "기사 삭제에 실패했습니다.");
+      setArticleErrorMessage(error instanceof Error ? error.message : "기사 삭제에 실패했습니다.");
     }
   }
 
   return {
     article,
     relatedArticles,
-    loading,
-    errorMessage,
+    isArticleLoading,
+    articleErrorMessage,
+    isRelatedLoading,
+    relatedErrorMessage,
     refresh: () => setRefreshKey((previous) => previous + 1),
     regenerateSummary,
     removeArticle,
