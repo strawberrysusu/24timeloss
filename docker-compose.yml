@@ -1,5 +1,8 @@
+# ── 개발용 Docker Compose ──
+# 사용법: docker compose up -d
+# MySQL + Spring Boot만 띄운다. Nginx/HTTPS 없이 직접 8080 접근.
+
 services:
-  # ── MySQL 데이터베이스 ──
   db:
     image: mysql:8.0
     environment:
@@ -7,7 +10,7 @@ services:
       MYSQL_DATABASE: newspick
       TZ: Asia/Seoul
     ports:
-      - "3307:3306"   # 로컬 MySQL(3306)과 충돌 방지 → 3307로 매핑
+      - "3307:3306"
     volumes:
       - mysql-data:/var/lib/mysql
     healthcheck:
@@ -16,13 +19,12 @@ services:
       timeout: 5s
       retries: 5
 
-  # ── Spring Boot 애플리케이션 ──
   app:
     build: .
     ports:
       - "8080:8080"
     environment:
-      SPRING_PROFILES_ACTIVE: prod
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev,docker}
       DB_URL: jdbc:mysql://db:3306/newspick?serverTimezone=Asia/Seoul&characterEncoding=UTF-8&useSSL=false&allowPublicKeyRetrieval=true
       DB_USERNAME: root
       DB_PASSWORD: ${DB_PASSWORD:-newspick1234}
