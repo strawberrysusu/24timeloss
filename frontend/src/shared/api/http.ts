@@ -17,6 +17,14 @@ export class ApiError extends Error {
   }
 }
 
+export function isApiError(error: unknown): error is ApiError {
+  return error instanceof ApiError;
+}
+
+export function isAuthenticationError(error: unknown): boolean {
+  return isApiError(error) && (error.status === 401 || error.code === "UNAUTHORIZED");
+}
+
 export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     credentials: "same-origin",
