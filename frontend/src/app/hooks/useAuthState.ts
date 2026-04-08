@@ -6,6 +6,7 @@ import {
   logoutMember,
   signupMember,
 } from "../../shared/api/members";
+import { clearStoredToken, getStoredToken } from "../../shared/api/http";
 import type { CurrentUser } from "../../shared/types/member";
 
 export type AuthMode = "login" | "signup";
@@ -28,6 +29,10 @@ export function useAuthState() {
     let cancelled = false;
 
     async function bootstrap() {
+      if (!getStoredToken()) {
+        setCurrentUser(null);
+        return;
+      }
       try {
         const user = await getCurrentUser();
         if (!cancelled) {
@@ -35,6 +40,7 @@ export function useAuthState() {
         }
       } catch {
         if (!cancelled) {
+          clearStoredToken();
           setCurrentUser(null);
         }
       }
@@ -84,7 +90,7 @@ export function useAuthState() {
   }
 
   async function logout() {
-    await logoutMember().catch(() => undefined);
+    await logoutMember();
     setCurrentUser(null);
   }
 

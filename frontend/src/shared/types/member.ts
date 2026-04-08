@@ -7,6 +7,13 @@ export interface CurrentUser {
   nickname: string;
 }
 
+export interface LoginResponseData {
+  token: string;
+  id: number;
+  email: string;
+  nickname: string;
+}
+
 export interface MyPageData {
   nickname: string;
   email: string;

@@ -1,7 +1,7 @@
 import type { Category } from "../constants/categories";
 import type { ReadHistoryItem } from "../types/article";
-import type { CurrentUser, MyPageData } from "../types/member";
-import { apiRequest } from "./http";
+import type { CurrentUser, LoginResponseData, MyPageData } from "../types/member";
+import { apiRequest, clearStoredToken, setStoredToken } from "./http";
 
 interface LoginPayload {
   email: string;
@@ -16,22 +16,28 @@ export function getCurrentUser() {
   return apiRequest<CurrentUser>("/api/members/me");
 }
 
-export function loginMember(payload: LoginPayload) {
-  return apiRequest<CurrentUser>("/api/members/login", {
+export async function loginMember(payload: LoginPayload): Promise<CurrentUser> {
+  const data = await apiRequest<LoginResponseData>("/api/members/login", {
     method: "POST",
     body: JSON.stringify(payload),
   });
+  setStoredToken(data.token);
+  return { id: data.id, email: data.email, nickname: data.nickname };
 }
 
-export function signupMember(payload: SignupPayload) {
-  return apiRequest<CurrentUser>("/api/members/signup", {
+export async function signupMember(payload: SignupPayload): Promise<CurrentUser> {
+  const data = await apiRequest<LoginResponseData>("/api/members/signup", {
     method: "POST",
     body: JSON.stringify(payload),
   });
+  setStoredToken(data.token);
+  return { id: data.id, email: data.email, nickname: data.nickname };
 }
 
-export function logoutMember() {
-  return apiRequest<void>("/api/members/logout", { method: "POST" });
+export async function logoutMember(): Promise<void> {
+  // 서버에서 httpOnly refresh 쿠키를 삭제한다
+  await apiRequest<void>("/api/members/logout", { method: "POST" }).catch(() => undefined);
+  clearStoredToken();
 }
 
 export function getMyPage() {
