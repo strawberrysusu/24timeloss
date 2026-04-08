@@ -1,0 +1,36 @@
+services:
+  # ── MySQL 데이터베이스 ──
+  db:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-newspick1234}
+      MYSQL_DATABASE: newspick
+      TZ: Asia/Seoul
+    ports:
+      - "3307:3306"   # 로컬 MySQL(3306)과 충돌 방지 → 3307로 매핑
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Spring Boot 애플리케이션 ──
+  app:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      DB_URL: jdbc:mysql://db:3306/newspick?serverTimezone=Asia/Seoul&characterEncoding=UTF-8&useSSL=false&allowPublicKeyRetrieval=true
+      DB_USERNAME: root
+      DB_PASSWORD: ${DB_PASSWORD:-newspick1234}
+      AI_API_KEY: ${AI_API_KEY:-}
+      AI_MODEL: ${AI_MODEL:-meta/llama-3.3-70b-instruct}
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  mysql-data:

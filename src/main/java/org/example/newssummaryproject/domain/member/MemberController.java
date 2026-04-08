@@ -1,14 +1,23 @@
 package org.example.newssummaryproject.domain.member;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.newssummaryproject.domain.member.dto.LoginRequest;
 import org.example.newssummaryproject.domain.member.dto.MemberResponse;
 import org.example.newssummaryproject.domain.member.dto.SignupRequest;
+import org.example.newssummaryproject.global.config.CustomUserDetails;
 import org.example.newssummaryproject.global.exception.UnauthorizedException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -20,23 +29,11 @@ import org.springframework.web.bind.annotation.RestController;
  *
  * 흐름: 브라우저/프론트 → ★ Controller → Service → Repository → DB
  *
- * 이 클래스는 회원 관련 HTTP 요청을 받아서 MemberService에 위임하고,
- * 결과를 JSON으로 변환해서 응답한다.
- *
- * 핵심 개념:
- *   - @RestController: @Controller + @ResponseBody의 합체.
- *              메서드 반환값을 자동으로 JSON으로 변환해서 HTTP 응답 본문에 넣는다.
- *   - @RequestMapping("/api/members"): 이 컨트롤러의 모든 엔드포인트 URL 앞에
- *              /api/members가 자동으로 붙는다. 예: @PostMapping("/signup") → POST /api/members/signup
- *   - ResponseEntity<T>: HTTP 상태 코드(200, 201, 404 등)를 직접 지정할 수 있는 응답 래퍼.
- *              ResponseEntity.ok(body) → 200 OK + body
- *              ResponseEntity.status(CREATED).body(body) → 201 Created + body
- *
- * 인증 방식 — 세션(Session) 기반:
- *   1. 로그인 성공 → 서버가 세션에 memberId를 저장 (쿠키로 세션ID를 브라우저에 전달)
- *   2. 이후 요청마다 브라우저가 자동으로 세션 쿠키를 보냄
- *   3. 서버가 세션에서 memberId를 꺼내서 "누가 요청했는지" 파악
- *   4. 로그아웃 → 세션 삭제 → 이후 요청에서 memberId를 꺼낼 수 없음 → 비로그인 처리
+ * 인증 방식 — Spring Security 세션 기반:
+ *   1. 로그인 성공 → AuthenticationManager가 인증 → SecurityContext에 저장 → 세션에 연결
+ *   2. 이후 요청마다 Spring Security가 세션에서 SecurityContext를 자동 복원
+ *   3. SecurityContextHolder.getContext().getAuthentication()으로 현재 사용자 확인
+ *   4. 로그아웃 → 세션 무효화 + SecurityContext 클리어
  */
 @RestController
 @RequiredArgsConstructor
@@ -44,77 +41,112 @@ import org.springframework.web.bind.annotation.RestController;
 public class MemberController {
 
     private final MemberService memberService;
+    private final AuthenticationManager authenticationManager;
 
     /**
      * 회원가입 — POST /api/members/signup
      *
-     * @Valid: SignupRequest의 @NotBlank, @Email, @Size 검증을 자동 실행한다.
-     *         검증에 실패하면 MethodArgumentNotValidException이 발생하고
-     *         GlobalExceptionHandler가 400(VALIDATION_ERROR) 응답을 만든다.
-     * @RequestBody: HTTP 요청 본문(JSON)을 SignupRequest 객체로 자동 변환한다.
-     * HttpSession: Spring이 자동으로 현재 세션을 주입해 준다.
+     * 회원가입 후 자동 로그인: AuthenticationManager로 인증해서 SecurityContext에 저장한다.
      */
     @PostMapping("/signup")
-    public ResponseEntity<MemberResponse> signup(@Valid @RequestBody SignupRequest request, HttpSession session) {
+    public ResponseEntity<MemberResponse> signup(
+            @Valid @RequestBody SignupRequest request,
+            HttpServletRequest httpRequest) {
         MemberResponse response = memberService.signup(request);
-        // 회원가입 즉시 로그인 상태로 만든다 (세션에 memberId 저장)
-        session.setAttribute("memberId", response.id());
-        // 201 Created: 새 리소스(회원)가 생성되었음을 나타낸다
+
+        // 회원가입 직후 자동 로그인 — Spring Security 인증 처리
+        authenticateAndSaveToSession(request.email(), request.password(), httpRequest);
+
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     /**
      * 로그인 — POST /api/members/login
      *
-     * 성공하면 세션에 memberId를 저장한다.
-     * 이후 다른 API에서 세션을 통해 "이 사용자가 로그인 중"임을 확인한다.
+     * AuthenticationManager가 비밀번호를 검증한다.
+     * 성공하면 SecurityContext에 인증 정보를 저장하고 세션에 연결한다.
+     * 실패하면 BadCredentialsException → 400 BAD_REQUEST 응답.
      */
     @PostMapping("/login")
-    public ResponseEntity<MemberResponse> login(@Valid @RequestBody LoginRequest request, HttpSession session) {
-        MemberResponse response = memberService.login(request);
-        session.setAttribute("memberId", response.id());
+    public ResponseEntity<MemberResponse> login(
+            @Valid @RequestBody LoginRequest request,
+            HttpServletRequest httpRequest) {
+        try {
+            authenticateAndSaveToSession(request.email(), request.password(), httpRequest);
+        } catch (BadCredentialsException e) {
+            throw new IllegalArgumentException("이메일 또는 비밀번호가 올바르지 않습니다.");
+        }
+
+        MemberResponse response = memberService.getMemberByEmail(request.email());
         return ResponseEntity.ok(response);
     }
 
     /**
      * 로그아웃 — POST /api/members/logout
      *
-     * session.invalidate()로 서버 측 세션 데이터를 모두 삭제한다.
-     * 브라우저의 세션 쿠키는 남아있지만, 서버에 해당 세션이 없으므로
-     * 이후 요청에서 memberId를 꺼낼 수 없다 → 비로그인 상태가 된다.
+     * 세션을 무효화하고 SecurityContext를 클리어한다.
      */
     @PostMapping("/logout")
-    public ResponseEntity<Void> logout(HttpSession session) {
-        session.invalidate();
+    public ResponseEntity<Void> logout(HttpServletRequest request) {
+        SecurityContextHolder.clearContext();
+        HttpSession session = request.getSession(false);
+        if (session != null) {
+            session.invalidate();
+        }
         return ResponseEntity.ok().build();
     }
 
     /**
      * 내 정보 조회 — GET /api/members/me
-     *
-     * 로그인한 사용자가 자기 정보를 볼 때 사용한다.
-     * 세션에서 memberId를 꺼내고, 그 ID로 DB에서 회원을 조회한다.
      */
     @GetMapping("/me")
-    public ResponseEntity<MemberResponse> me(HttpSession session) {
-        Long memberId = getLoginMemberId(session);
+    public ResponseEntity<MemberResponse> me() {
+        Long memberId = getLoginMemberId();
         return ResponseEntity.ok(memberService.getMember(memberId));
     }
 
     /**
-     * 세션에서 로그인된 회원 ID를 꺼내는 공용 헬퍼 메서드다.
+     * SecurityContext에서 로그인된 회원 ID를 꺼내는 공용 헬퍼 메서드다.
      *
      * static인 이유: ArticleController, MyPageController 등 다른 컨트롤러에서도
-     * MemberController.getLoginMemberId(session) 형태로 호출하기 위해서다.
-     * → 로그인 확인 로직을 한 곳에 모아서 중복 코드를 방지한다.
-     *
-     * memberId가 없으면(= 로그인 안 됨) UnauthorizedException(401)을 던진다.
+     * MemberController.getLoginMemberId() 형태로 호출하기 위해서다.
      */
-    public static Long getLoginMemberId(HttpSession session) {
-        Long memberId = (Long) session.getAttribute("memberId");
-        if (memberId == null) {
+    public static Long getLoginMemberId() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated() || auth.getPrincipal().equals("anonymousUser")) {
             throw new UnauthorizedException("로그인이 필요합니다.");
         }
-        return memberId;
+        CustomUserDetails userDetails = (CustomUserDetails) auth.getPrincipal();
+        return userDetails.getMemberId();
+    }
+
+    /**
+     * SecurityContext에서 로그인된 회원 ID를 꺼내되, 비로그인이면 null을 반환한다.
+     * 추천 기사 등 비로그인도 허용하는 API에서 사용한다.
+     */
+    public static Long getLoginMemberIdOrNull() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated() || auth.getPrincipal().equals("anonymousUser")) {
+            return null;
+        }
+        CustomUserDetails userDetails = (CustomUserDetails) auth.getPrincipal();
+        return userDetails.getMemberId();
+    }
+
+    /**
+     * 이메일/비밀번호로 인증하고, SecurityContext에 저장 후 세션에 연결하는 내부 헬퍼다.
+     */
+    private void authenticateAndSaveToSession(String email, String password, HttpServletRequest request) {
+        UsernamePasswordAuthenticationToken token =
+                new UsernamePasswordAuthenticationToken(email, password);
+        Authentication authentication = authenticationManager.authenticate(token);
+
+        SecurityContext context = SecurityContextHolder.createEmptyContext();
+        context.setAuthentication(authentication);
+        SecurityContextHolder.setContext(context);
+
+        // 세션에 SecurityContext를 저장해서 다음 요청에서 자동 복원되게 한다
+        HttpSession session = request.getSession(true);
+        session.setAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY, context);
     }
 }

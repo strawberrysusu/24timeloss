@@ -1,7 +1,6 @@
 package org.example.newssummaryproject.domain.member;
 
 import lombok.RequiredArgsConstructor;
-import org.example.newssummaryproject.domain.member.dto.LoginRequest;
 import org.example.newssummaryproject.domain.member.dto.MemberResponse;
 import org.example.newssummaryproject.domain.member.dto.SignupRequest;
 import org.example.newssummaryproject.global.exception.DuplicateException;
@@ -68,29 +67,12 @@ public class MemberService {
     }
 
     /**
-     * 로그인을 처리한다.
-     *
-     * 처리 흐름:
-     *   1. 이메일로 회원 조회 → 없으면 404(NOT_FOUND) 에러
-     *   2. 입력한 비밀번호와 DB의 암호화된 비밀번호를 비교
-     *   3. 일치하면 회원 정보 반환 (Controller에서 세션에 저장함)
-     *
-     * 보안 팁: "이메일이 없다" vs "비밀번호가 틀리다"를 구분하면
-     *          공격자에게 이메일 존재 여부를 알려주므로, 같은 메시지를 쓴다.
-     *
-     * 이 메서드에는 @Transactional이 없다 → 클래스 기본값인 readOnly=true가 적용.
-     * 로그인은 DB를 읽기만 하므로 쓰기 트랜잭션이 필요 없다.
+     * 이메일로 회원 정보를 조회한다.
+     * 로그인 성공 후 응답 데이터를 만들 때 사용한다.
      */
-    public MemberResponse login(LoginRequest request) {
-        Member member = memberRepository.findByEmail(request.email())
-                .orElseThrow(() -> new NotFoundException("이메일 또는 비밀번호가 올바르지 않습니다."));
-
-        // passwordEncoder.matches(평문, 해시)가 내부적으로 BCrypt 비교를 해준다.
-        // 해시된 비밀번호를 다시 평문으로 되돌릴 수는 없지만, 같은지 비교는 가능하다.
-        if (!passwordEncoder.matches(request.password(), member.getPassword())) {
-            throw new IllegalArgumentException("이메일 또는 비밀번호가 올바르지 않습니다.");
-        }
-
+    public MemberResponse getMemberByEmail(String email) {
+        Member member = memberRepository.findByEmail(email)
+                .orElseThrow(() -> new NotFoundException("회원을 찾을 수 없습니다."));
         return MemberResponse.from(member);
     }
 

@@ -43,7 +43,7 @@ class MemberControllerTest {
                         .content("{\"email\":\"auto@test.com\",\"password\":\"1234\",\"nickname\":\"자동로그인\"}"))
                 .andExpect(status().isCreated());
 
-        // 세션이 설정되었으므로 /me 호출이 성공해야 한다
+        // SecurityContext가 세션에 저장되었으므로 /me 호출이 성공해야 한다
         mockMvc.perform(get("/api/members/me").session(session))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.email").value("auto@test.com"));
@@ -124,7 +124,8 @@ class MemberControllerTest {
         mockMvc.perform(post("/api/members/logout").session(session))
                 .andExpect(status().isOk());
 
-        mockMvc.perform(get("/api/members/me").session(session))
+        // 로그아웃 후 세션이 무효화되었으므로 새 세션으로 요청 → 401
+        mockMvc.perform(get("/api/members/me"))
                 .andExpect(status().isUnauthorized());
     }
 
