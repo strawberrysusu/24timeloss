@@ -5,6 +5,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.example.newssummaryproject.global.exception.AiSummaryException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.core.env.Environment;
+import org.springframework.core.env.Profiles;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -40,18 +42,21 @@ public class AiSummaryService {
     private final String baseUrl;
     private final int timeoutSeconds;
     private final boolean mockEnabled;
+    private final Environment environment;
 
     public AiSummaryService(
             @Value("${ai.api-key:}") String apiKey,
-            @Value("${ai.model:moonshotai/kimi-k2.5}") String model,
+            @Value("${ai.model:meta/llama-3.3-70b-instruct}") String model,
             @Value("${ai.base-url:https://integrate.api.nvidia.com/v1/chat/completions}") String baseUrl,
             @Value("${ai.timeout:60}") int timeoutSeconds,
-            @Value("${ai.mock-enabled:false}") boolean mockEnabled) {
+            @Value("${ai.mock-enabled:false}") boolean mockEnabled,
+            Environment environment) {
         this.apiKey = apiKey;
         this.model = model;
         this.baseUrl = baseUrl;
         this.timeoutSeconds = timeoutSeconds;
         this.mockEnabled = mockEnabled;
+        this.environment = environment;
         this.objectMapper = new ObjectMapper();
     }
 
@@ -62,8 +67,8 @@ public class AiSummaryService {
      * 이렇게 해야 테스트에서 환경변수에 API 키가 설정되어 있어도 실제 AI를 호출하지 않는다.
      */
     public SummaryResult summarize(String content) {
-        // mock 모드는 항상 최우선 — 테스트 환경에서 실제 API 호출을 방지한다
-        if (mockEnabled) {
+        // test 프로파일과 mock 모드는 항상 최우선 — 환경변수보다 강하게 테스트를 보호한다
+        if (mockEnabled || environment.acceptsProfiles(Profiles.of("test"))) {
             log.info("AI mock 모드가 활성화되어 가짜 요약을 반환합니다.");
             return fakeSummarize();
         }
