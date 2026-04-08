@@ -1,0 +1,59 @@
+name: CD
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
+    steps:
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script_stop: true
+          script: |
+            set -e
+
+            if [ ! -d "$HOME/24timeloss/.git" ]; then
+              git clone https://github.com/${{ github.repository }}.git "$HOME/24timeloss"
+            fi
+
+            cd "$HOME/24timeloss"
+            git fetch origin main
+            git reset --hard origin/main
+
+            if [ ! -f .env ]; then
+              cp .env.example .env
+              echo ".env file is missing on EC2. Fill it on the server, then re-run the workflow."
+              exit 1
+            fi
+
+            docker compose up -d --build --remove-orphans
+
+            echo "Waiting for health check..."
+            for i in 1 2 3 4 5 6; do
+              if curl --fail --silent http://localhost:8080/health > /dev/null; then
+                docker compose ps
+                exit 0
+              fi
+              sleep 10
+            done
+
+            docker compose ps
+            echo "Health check failed"
+            exit 1
