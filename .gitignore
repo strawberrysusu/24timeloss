@@ -44,6 +44,7 @@ frontend/.env
 frontend/.env.*
 
 .claude/
+CHECKLIST.md
 
 ### 디버그용 HTML 파일 ###
 naver_*.html

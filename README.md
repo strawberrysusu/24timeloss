@@ -2,6 +2,10 @@
 
 뉴스 기사를 등록하면 AI가 3줄 요약과 핵심 포인트를 자동 생성하는 웹 서비스입니다.
 
+> **서비스 주소**: https://43.202.121.142.nip.io
+> 
+> **테스트 계정**: `test@test.com` / `1234` (dev 환경 시드 데이터)
+
 ## 주요 기능
 
 - **AI 뉴스 요약**: URL로 기사를 등록하면 본문을 자동 추출(Jsoup + Readability4J)하고 AI(LLaMA 3.3 70B)가 3줄 요약 + 핵심 포인트 생성
@@ -32,6 +36,71 @@
 
 - **SPA 통합 빌드**: React 앱이 Gradle 빌드 시 `src/main/resources/static/react/`로 번들링, Spring Boot가 함께 서빙
 - **Stateless 인증**: 세션 없이 JWT로 API 인증, Refresh Token은 httpOnly 쿠키로 관리
+
+### 배포 구조
+
+```
+[GitHub] ──push──→ [GitHub Actions CI] ──성공──→ [GitHub Actions CD]
+                        │                              │
+                   build + test                   SSH로 EC2 접속
+                                                       │
+                                              git pull → docker compose up --build
+                                                       │
+                                              ┌────────┴────────┐
+                                              │   EC2 인스턴스    │
+                                              │                  │
+                                              │  [Nginx :443]    │
+                                              │       ↓          │
+                                              │  [Spring Boot]   │
+                                              │       ↓          │
+                                              │  [MySQL 8.0]     │
+                                              │                  │
+                                              │  [Certbot]       │
+                                              └─────────────────┘
+```
+
+### 기사 추출 → AI 요약 흐름
+
+```
+사용자가 URL 입력
+    ↓
+ArticleExtractService.extract(url)
+    ├── Jsoup으로 HTML 가져오기 (15초 타임아웃, 1회 재시도)
+    ├── 사이트별 분기: 네이버뉴스 / KBS / 일반
+    ├── 제목, 본문, 출처, 썸네일, 영상 URL 추출
+    └── 본문 < 50자면 og:description 폴백
+    ↓
+사용자가 기사 등록 (POST /api/articles)
+    ↓
+사용자가 "AI 요약 생성" 클릭
+    ↓
+AiSummaryService.summarize(content)
+    ├── NVIDIA NIM API 호출 (LLaMA 3.3 70B)
+    ├── SSE 스트리밍으로 응답 수신
+    ├── JSON 파싱 → 3줄 요약 + 핵심 포인트 3개
+    └── DB에 저장 (ArticleSummary)
+```
+
+## 기술 선택 이유
+
+| 기술 | 선택 이유 |
+|------|----------|
+| **Spring Boot** | Java 백엔드 표준. Security, JPA, OAuth2 등 인증/DB 관련 생태계가 잘 갖춰져 있다 |
+| **JWT (Access + Refresh)** | 세션 서버 없이 Stateless 인증. Access Token은 짧게, Refresh Token은 httpOnly 쿠키로 보안과 UX를 모두 확보 |
+| **Google OAuth2** | 소셜 로그인 경험. Spring Security OAuth2 Client로 서버사이드 처리하여 토큰이 프론트에 노출되지 않음 |
+| **Flyway** | `ddl-auto=update`는 운영에서 위험. SQL 기반 버전 관리로 스키마 변경을 추적하고 롤백 가능 |
+| **Docker Compose** | 개발/운영 환경 통일. "내 PC에서는 되는데" 문제 방지. MySQL, Nginx, App을 한 번에 구성 |
+| **Nginx + Let's Encrypt** | 무료 HTTPS. 리버스 프록시로 Spring Boot를 직접 노출하지 않음 |
+| **GitHub Actions CI/CD** | push만 하면 빌드→테스트→배포 자동 실행. 수동 SSH 접속 없이 배포 가능 |
+| **EC2** | 프리 티어로 충분한 트래픽. Docker만 설치하면 바로 운영 가능 |
+| **React SPA** | 페이지 전환 없이 빠른 UX. Spring Boot에 번들링하여 별도 프론트 서버 불필요 |
+
+## 알려진 제한 사항
+
+- **기사 추출**: 사이트별 HTML 구조에 의존하므로 구조 변경 시 추출 실패 가능
+- **nip.io 도메인**: IP 기반 임시 도메인. 실서비스에는 정식 도메인 필요
+- **운영 모니터링**: Actuator health 엔드포인트만 존재. 로그 수집/알림 미구축
+- **AI 요약**: NVIDIA NIM API 무료 크레딧 기반. 크레딧 소진 시 mock 모드로 전환 필요
 
 ## 프로젝트 구조
 
