@@ -1482,6 +1482,33 @@ textarea {
   margin-top: 4px;
   justify-content: center;
 }
+.modal-divider {
+  display: flex;
+  align-items: center;
+  margin: 16px 0 12px;
+  color: var(--ash);
+  font-size: 12px;
+}
+.modal-divider::before,
+.modal-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+.modal-divider span {
+  padding: 0 12px;
+}
+.modal-google-btn {
+  width: 100%;
+  padding: 10px;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  border-radius: 8px;
+}
 .modal-switch {
   text-align: center;
   font-size: 12px;

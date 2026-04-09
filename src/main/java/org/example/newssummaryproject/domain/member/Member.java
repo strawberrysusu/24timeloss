@@ -58,14 +58,21 @@ public class Member extends BaseTimeEntity {
     @Column(nullable = false, length = 30)
     private String nickname;
 
-    // @Builder: Lombok이 빌더 패턴 코드를 자동 생성한다.
-    // 사용법: Member.builder().email("a@b.com").password("...").nickname("홍길동").build()
-    // private 접근자로 외부에서 직접 new Member()를 못 쓰게 하고, Builder만 허용한다.
+    // 가입 경로: LOCAL(이메일/비밀번호), GOOGLE(구글 OAuth2)
+    @Column(nullable = false, length = 20)
+    private String provider = "LOCAL";
+
+    // 소셜 서비스의 고유 사용자 ID (Google의 sub 값)
+    @Column(length = 100)
+    private String providerId;
+
     @Builder
-    private Member(String email, String password, String nickname) {
+    private Member(String email, String password, String nickname, String provider, String providerId) {
         this.email = email;
         this.password = password;
         this.nickname = nickname;
+        this.provider = provider != null ? provider : "LOCAL";
+        this.providerId = providerId;
     }
 
     // 닉네임 변경 — @Transactional 안에서 호출하면 dirty checking으로 자동 UPDATE된다

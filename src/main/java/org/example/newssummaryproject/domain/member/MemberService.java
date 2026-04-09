@@ -1,5 +1,7 @@
 package org.example.newssummaryproject.domain.member;
 
+import java.util.UUID;
+
 import lombok.RequiredArgsConstructor;
 import org.example.newssummaryproject.domain.member.dto.MemberResponse;
 import org.example.newssummaryproject.domain.member.dto.SignupRequest;
@@ -84,6 +86,28 @@ public class MemberService {
         Member member = memberRepository.findById(memberId)
                 .orElseThrow(() -> new NotFoundException("회원을 찾을 수 없습니다."));
         return MemberResponse.from(member);
+    }
+
+    /**
+     * Google OAuth2 로그인 시 회원을 찾거나 새로 생성한다.
+     *
+     * - 이미 같은 이메일로 가입된 회원이 있으면 그 회원으로 로그인한다.
+     * - 없으면 Google 정보로 새 회원을 생성한다. (비밀번호는 랜덤 UUID — 직접 로그인 불가)
+     */
+    @Transactional
+    public MemberResponse findOrCreateByGoogle(String email, String name, String googleId) {
+        return memberRepository.findByEmail(email)
+                .map(MemberResponse::from)
+                .orElseGet(() -> {
+                    Member member = Member.builder()
+                            .email(email)
+                            .password(passwordEncoder.encode(UUID.randomUUID().toString()))
+                            .nickname(name != null ? name : email.split("@")[0])
+                            .provider("GOOGLE")
+                            .providerId(googleId)
+                            .build();
+                    return MemberResponse.from(memberRepository.save(member));
+                });
     }
 
     /**

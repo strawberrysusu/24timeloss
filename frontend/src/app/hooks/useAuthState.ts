@@ -6,7 +6,7 @@ import {
   logoutMember,
   signupMember,
 } from "../../shared/api/members";
-import { clearStoredToken, getStoredToken } from "../../shared/api/http";
+import { clearStoredToken, getStoredToken, setStoredToken } from "../../shared/api/http";
 import type { CurrentUser } from "../../shared/types/member";
 
 export type AuthMode = "login" | "signup";
@@ -27,6 +27,14 @@ export function useAuthState() {
 
   useEffect(() => {
     let cancelled = false;
+
+    // OAuth2 리다이렉트에서 돌아온 경우 URL의 token 파라미터를 저장한다
+    const params = new URLSearchParams(window.location.search);
+    const oauthToken = params.get("token");
+    if (oauthToken) {
+      setStoredToken(oauthToken);
+      window.history.replaceState({}, "", window.location.pathname);
+    }
 
     async function bootstrap() {
       if (!getStoredToken()) {
