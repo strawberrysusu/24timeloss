@@ -24,9 +24,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Transactional
 class MemberControllerTest {
 
-    @Autowired MockMvc mockMvc;
+    @Autowired
+    MockMvc mockMvc;
 
-    /** 회원가입하고 access token을 반환하는 헬퍼 */
     private String signupAndGetToken(String email, String password, String nickname) throws Exception {
         MvcResult result = mockMvc.perform(post("/api/members/signup")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -36,7 +36,6 @@ class MemberControllerTest {
         return JsonPath.read(result.getResponse().getContentAsString(), "$.token");
     }
 
-    /** 회원가입하고 refresh cookie를 반환하는 헬퍼 */
     private Cookie signupAndGetRefreshCookie(String email, String nickname) throws Exception {
         MvcResult result = mockMvc.perform(post("/api/members/signup")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -46,7 +45,6 @@ class MemberControllerTest {
         return result.getResponse().getCookie("refresh_token");
     }
 
-    /** 로그인하고 access token을 반환하는 헬퍼 */
     private String loginAndGetToken(String email, String password) throws Exception {
         MvcResult result = mockMvc.perform(post("/api/members/login")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -57,29 +55,29 @@ class MemberControllerTest {
     }
 
     @Test
-    void 회원가입_성공() throws Exception {
+    void signup_success_returns_member_and_token() throws Exception {
         mockMvc.perform(post("/api/members/signup")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\":\"newuser@test.com\",\"password\":\"1234\",\"nickname\":\"테스터\"}"))
+                        .content("{\"email\":\"newuser@test.com\",\"password\":\"1234\",\"nickname\":\"tester\"}"))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.email").value("newuser@test.com"))
-                .andExpect(jsonPath("$.nickname").value("테스터"))
+                .andExpect(jsonPath("$.nickname").value("tester"))
                 .andExpect(jsonPath("$.token").isNotEmpty());
     }
 
     @Test
-    void 회원가입시_refresh_쿠키가_httpOnly로_발급된다() throws Exception {
+    void signup_sets_http_only_refresh_cookie() throws Exception {
         mockMvc.perform(post("/api/members/signup")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\":\"cookie@test.com\",\"password\":\"1234\",\"nickname\":\"쿠키\"}"))
+                        .content("{\"email\":\"cookie@test.com\",\"password\":\"1234\",\"nickname\":\"cookie-user\"}"))
                 .andExpect(status().isCreated())
                 .andExpect(cookie().exists("refresh_token"))
                 .andExpect(cookie().httpOnly("refresh_token", true));
     }
 
     @Test
-    void 회원가입_후_토큰으로_인증된다() throws Exception {
-        String token = signupAndGetToken("auto@test.com", "1234", "자동로그인");
+    void signup_token_can_access_me_endpoint() throws Exception {
+        String token = signupAndGetToken("auto@test.com", "1234", "auto-user");
 
         mockMvc.perform(get("/api/members/me")
                         .header("Authorization", "Bearer " + token))
@@ -88,32 +86,32 @@ class MemberControllerTest {
     }
 
     @Test
-    void 회원가입_이메일_빈값이면_400() throws Exception {
+    void signup_rejects_blank_email() throws Exception {
         mockMvc.perform(post("/api/members/signup")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\":\"\",\"password\":\"1234\",\"nickname\":\"테스터\"}"))
+                        .content("{\"email\":\"\",\"password\":\"1234\",\"nickname\":\"tester\"}"))
                 .andExpect(status().isBadRequest());
     }
 
     @Test
-    void 회원가입_이메일_형식오류_400() throws Exception {
+    void signup_rejects_invalid_email() throws Exception {
         mockMvc.perform(post("/api/members/signup")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\":\"not-email\",\"password\":\"1234\",\"nickname\":\"테스터\"}"))
+                        .content("{\"email\":\"not-email\",\"password\":\"1234\",\"nickname\":\"tester\"}"))
                 .andExpect(status().isBadRequest());
     }
 
     @Test
-    void 회원가입_비밀번호_짧으면_400() throws Exception {
+    void signup_rejects_short_password() throws Exception {
         mockMvc.perform(post("/api/members/signup")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\":\"pw@test.com\",\"password\":\"12\",\"nickname\":\"테스터\"}"))
+                        .content("{\"email\":\"pw@test.com\",\"password\":\"12\",\"nickname\":\"tester\"}"))
                 .andExpect(status().isBadRequest());
     }
 
     @Test
-    void 로그인_성공_토큰_발급() throws Exception {
-        signupAndGetToken("login@test.com", "1234", "로그인");
+    void login_success_returns_access_token() throws Exception {
+        signupAndGetToken("login@test.com", "1234", "login-user");
         String token = loginAndGetToken("login@test.com", "1234");
 
         mockMvc.perform(get("/api/members/me")
@@ -123,8 +121,8 @@ class MemberControllerTest {
     }
 
     @Test
-    void 로그인_잘못된_비밀번호_400() throws Exception {
-        signupAndGetToken("wrong@test.com", "1234", "테스터");
+    void login_rejects_wrong_password() throws Exception {
+        signupAndGetToken("wrong@test.com", "1234", "wrong-user");
 
         mockMvc.perform(post("/api/members/login")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -133,23 +131,21 @@ class MemberControllerTest {
     }
 
     @Test
-    void 비로그인_상태에서_me_호출시_401() throws Exception {
+    void me_requires_authentication() throws Exception {
         mockMvc.perform(get("/api/members/me"))
                 .andExpect(status().isUnauthorized());
     }
 
     @Test
-    void 잘못된_토큰으로_me_호출시_401() throws Exception {
+    void me_rejects_invalid_token() throws Exception {
         mockMvc.perform(get("/api/members/me")
                         .header("Authorization", "Bearer invalid.token.here"))
                 .andExpect(status().isUnauthorized());
     }
 
-    // ── Refresh Token (httpOnly 쿠키) 테스트 ──
-
     @Test
-    void refresh_쿠키로_새_accessToken_발급() throws Exception {
-        Cookie refreshCookie = signupAndGetRefreshCookie("rt@test.com", "RT테스트");
+    void refresh_cookie_issues_new_access_token() throws Exception {
+        Cookie refreshCookie = signupAndGetRefreshCookie("refresh@test.com", "refresh-user");
 
         MvcResult refreshResult = mockMvc.perform(post("/api/members/refresh")
                         .cookie(refreshCookie))
@@ -162,41 +158,38 @@ class MemberControllerTest {
         mockMvc.perform(get("/api/members/me")
                         .header("Authorization", "Bearer " + newToken))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.email").value("rt@test.com"));
+                .andExpect(jsonPath("$.email").value("refresh@test.com"));
     }
 
     @Test
-    void refresh_쿠키_없으면_401() throws Exception {
+    void refresh_requires_cookie() throws Exception {
         mockMvc.perform(post("/api/members/refresh"))
                 .andExpect(status().isUnauthorized());
     }
 
     @Test
-    void accessToken으로_refresh_요청시_401() throws Exception {
-        String accessToken = signupAndGetToken("at@test.com", "1234", "AT테스트");
+    void refresh_rejects_access_token_in_refresh_cookie() throws Exception {
+        String accessToken = signupAndGetToken("access@test.com", "1234", "access-user");
 
-        // access token을 refresh 쿠키로 넣으면 거부
         mockMvc.perform(post("/api/members/refresh")
                         .cookie(new Cookie("refresh_token", accessToken)))
                 .andExpect(status().isUnauthorized());
     }
 
-    // ── 로그아웃 ──
-
     @Test
-    void 로그아웃시_refresh_쿠키_삭제() throws Exception {
+    void logout_clears_refresh_cookie() throws Exception {
         mockMvc.perform(post("/api/members/logout"))
                 .andExpect(status().isOk())
                 .andExpect(cookie().maxAge("refresh_token", 0));
     }
 
     @Test
-    void 이메일_중복_가입_409() throws Exception {
-        signupAndGetToken("dup@test.com", "1234", "원본");
+    void signup_rejects_duplicate_email() throws Exception {
+        signupAndGetToken("dup@test.com", "1234", "original-user");
 
         mockMvc.perform(post("/api/members/signup")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\":\"dup@test.com\",\"password\":\"5678\",\"nickname\":\"복사\"}"))
+                        .content("{\"email\":\"dup@test.com\",\"password\":\"5678\",\"nickname\":\"duplicate-user\"}"))
                 .andExpect(status().isConflict());
     }
 }
