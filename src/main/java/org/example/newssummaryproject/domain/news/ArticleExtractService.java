@@ -3,12 +3,14 @@ package org.example.newssummaryproject.domain.news;
 import net.dankito.readability4j.Readability4J;
 import net.dankito.readability4j.Article;
 import org.jsoup.Jsoup;
+import org.jsoup.Connection;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import java.net.SocketTimeoutException;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -123,28 +125,49 @@ public class ArticleExtractService {
      *   KBS 뉴스   → extractKbs()
      *   그 외      → extractGeneral()
      */
+    private static final int CONNECT_TIMEOUT_MS = 15_000;
+    private static final int MAX_RETRIES = 1;
+
     public ExtractResult extract(String url) {
-        try {
-            // HTML 페이지를 가져온다
-            Document doc = Jsoup.connect(url)
-                    .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
-                    .timeout(10_000)
-                    .get();
+        Document doc = fetchDocument(url);
 
-            // 사이트별로 추출 방식을 나눈다
-            if (isNaverNews(url)) {
-                return extractNaver(doc, url);
-            }
-            if (isKbsNews(url)) {
-                return extractKbs(doc, url);
-            }
-            return extractGeneral(doc, url);
-
-        } catch (Exception e) {
-            log.error("기사 추출 실패: url={}, error={}", url, e.getMessage());
-            throw new IllegalArgumentException(
-                    "기사를 가져올 수 없습니다. URL을 확인해주세요: " + e.getMessage());
+        // 사이트별로 추출 방식을 나눈다
+        if (isNaverNews(url)) {
+            return extractNaver(doc, url);
         }
+        if (isKbsNews(url)) {
+            return extractKbs(doc, url);
+        }
+        return extractGeneral(doc, url);
+    }
+
+    /**
+     * URL에서 HTML을 가져온다. timeout 시 1회 재시도한다.
+     */
+    private Document fetchDocument(String url) {
+        SocketTimeoutException lastTimeout = null;
+
+        for (int attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+            try {
+                Connection conn = Jsoup.connect(url)
+                        .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                        .timeout(CONNECT_TIMEOUT_MS)
+                        .followRedirects(true)
+                        .referrer("https://www.google.com");
+                return conn.get();
+            } catch (SocketTimeoutException e) {
+                lastTimeout = e;
+                log.warn("기사 페이지 타임아웃 ({}회차): url={}", attempt + 1, url);
+            } catch (Exception e) {
+                log.error("기사 페이지 요청 실패: url={}, error={}", url, e.getMessage());
+                throw new IllegalArgumentException(
+                        "기사를 가져올 수 없습니다. URL을 확인해주세요: " + e.getMessage());
+            }
+        }
+
+        log.error("기사 페이지 타임아웃 (재시도 소진): url={}", url);
+        throw new IllegalArgumentException(
+                "기사 페이지 응답이 너무 느립니다. 잠시 후 다시 시도해주세요.");
     }
 
     // ──────────────────────────────────────────────────────
@@ -198,6 +221,16 @@ public class ArticleExtractService {
         // 본문 — #dic_area에서 <br>을 줄바꿈으로 변환해서 추출
         String content = extractNaverContent(doc);
         content = cleanBoilerplate(content);
+
+        // 영상 기사에서 본문이 너무 짧으면 og:description으로 폴백
+        if (content.length() < 50) {
+            String description = getMetaContent(doc, "og:description");
+            if (description.length() > content.length()) {
+                log.info("네이버 기사 본문 짧음 ({}자), og:description으로 폴백 ({}자)",
+                        content.length(), description.length());
+                content = description;
+            }
+        }
 
         log.info("네이버 기사 추출: source={}, hasVideo={}, videoUrl={}, content={}자",
                 source, hasVideo, videoEmbedUrl.isEmpty() ? "없음" : videoEmbedUrl, content.length());
@@ -376,6 +409,13 @@ public class ArticleExtractService {
         }
         content = cleanBoilerplate(content);
 
+        if (content.length() < 50) {
+            String description = getMetaContent(doc, "og:description");
+            if (description.length() > content.length()) {
+                content = description;
+            }
+        }
+
         // 영상: KBS는 외부 재생 불가 (CDN 서명 필요) → 영상 지원 안 함
         log.info("KBS 기사 추출: content={}자", content.length());
         return new ExtractResult(title, source, image, content, url, false, "");
@@ -411,6 +451,16 @@ public class ArticleExtractService {
 
         // 4단계: boilerplate 제거
         content = cleanBoilerplate(content);
+
+        // 본문이 너무 짧으면 og:description으로 폴백
+        if (content.length() < 50) {
+            String description = getMetaContent(doc, "og:description");
+            if (description.length() > content.length()) {
+                log.info("일반 기사 본문 짧음 ({}자), og:description으로 폴백 ({}자)",
+                        content.length(), description.length());
+                content = description;
+            }
+        }
 
         log.info("일반 기사 추출: source={}, content={}자", source, content.length());
         return new ExtractResult(title, source, image, content, url, false, "");
