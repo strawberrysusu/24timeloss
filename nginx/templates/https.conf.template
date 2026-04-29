@@ -24,6 +24,14 @@ server {
 
     client_max_body_size 10M;
 
+    # 보안 헤더 — 클릭재킹/MIME-sniff/Referrer 누출 방지
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Permissions-Policy "geolocation=(), microphone=(), camera=()" always;
+    # HSTS: HTTPS 강제 (1년). includeSubDomains 빼두는 이유 — 서브도메인 추가 시 사고 방지.
+    add_header Strict-Transport-Security "max-age=31536000" always;
+
     location / {
         proxy_pass http://app:8080;
         proxy_set_header Host $host;
