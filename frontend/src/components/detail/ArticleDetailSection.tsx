@@ -93,8 +93,8 @@ export function ArticleDetailSection({
           <iframe
             src={article.videoEmbedUrl}
             title={article.title}
-            sandbox="allow-scripts allow-presentation allow-popups allow-popups-to-escape-sandbox"
-            referrerPolicy="no-referrer"
+            sandbox="allow-scripts allow-same-origin allow-presentation allow-popups allow-popups-to-escape-sandbox"
+            referrerPolicy="no-referrer-when-downgrade"
             allowFullScreen
           />
         </div>
