@@ -15,4 +15,7 @@ public interface ArticleSummaryRepository extends JpaRepository<ArticleSummary, 
 
     // 기사 목록의 요약을 한 번에 가져온다. (홈 카드 미리보기용)
     List<ArticleSummary> findByArticleIdIn(List<Long> articleIds);
+
+    // 기사 삭제 시 관련 요약도 함께 삭제 (retention 정리용)
+    void deleteByArticleId(Long articleId);
 }

@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -40,4 +41,21 @@ public interface ArticleRepository extends JpaRepository<Article, Long> {
     // ── 관련 뉴스: 제목에 특정 키워드가 포함된 기사 (현재 기사 제외) ──
     @Query("SELECT a FROM Article a WHERE a.id != :excludeId AND a.title LIKE %:keyword% ORDER BY a.publishedAt DESC")
     List<Article> findRelatedByTitleKeyword(@Param("excludeId") Long excludeId, @Param("keyword") String keyword, Pageable pageable);
+
+    /**
+     * Retention 정리 대상 기사 ID를 조회한다.
+     *
+     * 조건 (모두 만족해야 함):
+     *   - writer IS NULL : 시스템이 자동 수집한 기사 (사용자 직접 작성 기사는 보존)
+     *   - createdAt < cutoff : 우리 DB에 들어온 지 N일 지난 기사
+     *   - 누구도 저장하지 않은 기사 (saved_articles에 없는 것만)
+     *
+     * 읽기 기록(read_history)이 있어도 저장 안 했으면 정리 대상이다.
+     * "한 번 본 것"과 "의도적으로 보관한 것"은 다른 의미라고 보기 때문.
+     */
+    @Query("SELECT a.id FROM Article a " +
+            "WHERE a.writer IS NULL " +
+            "  AND a.createdAt < :cutoff " +
+            "  AND a.id NOT IN (SELECT s.article.id FROM SavedArticle s)")
+    List<Long> findOldUnsavedSystemArticleIds(@Param("cutoff") LocalDateTime cutoff, Pageable pageable);
 }
