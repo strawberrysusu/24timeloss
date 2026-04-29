@@ -9,6 +9,9 @@ interface ArticleDetailSectionProps {
   article: ArticleDetailData | null;
   currentUser: CurrentUser | null;
   isSaved: boolean;
+  summaryErrorMessage?: string;
+  isSummaryGenerating?: boolean;
+  onDismissSummaryError?: () => void;
   onToggleSave: (articleId: number) => void;
   onGenerateSummary: (articleId: number) => void;
   onEditArticle?: () => void;
@@ -19,6 +22,9 @@ export function ArticleDetailSection({
   article,
   currentUser,
   isSaved,
+  summaryErrorMessage = "",
+  isSummaryGenerating = false,
+  onDismissSummaryError,
   onToggleSave,
   onGenerateSummary,
   onEditArticle,
@@ -110,16 +116,54 @@ export function ArticleDetailSection({
               <button
                 className="btn btn-ghost"
                 style={{ marginLeft: "auto", fontSize: "12px", padding: "4px 10px" }}
+                disabled={isSummaryGenerating}
                 onClick={() => {
                   if (window.confirm("AI 요약을 다시 생성하시겠어요? (외부 AI API 호출량을 사용합니다)")) {
                     onGenerateSummary(article.id);
                   }
                 }}
               >
-                재생성
+                {isSummaryGenerating ? "생성 중..." : "재생성"}
               </button>
             ) : null}
           </div>
+          {summaryErrorMessage ? (
+            <div
+              role="alert"
+              style={{
+                margin: "8px 0 12px",
+                padding: "10px 12px",
+                background: "rgba(239, 68, 68, 0.08)",
+                border: "1px solid rgba(239, 68, 68, 0.3)",
+                borderRadius: "8px",
+                fontSize: "13px",
+                color: "var(--error)",
+                display: "flex",
+                alignItems: "flex-start",
+                gap: "8px",
+              }}
+            >
+              <span style={{ flex: 1 }}>{summaryErrorMessage}</span>
+              {onDismissSummaryError ? (
+                <button
+                  type="button"
+                  onClick={onDismissSummaryError}
+                  style={{
+                    background: "transparent",
+                    border: "none",
+                    color: "var(--error)",
+                    cursor: "pointer",
+                    fontSize: "16px",
+                    lineHeight: 1,
+                    padding: 0,
+                  }}
+                  aria-label="오류 메시지 닫기"
+                >
+                  ×
+                </button>
+              ) : null}
+            </div>
+          ) : null}
           <p className="ai-box-text">
             {article.summary.summaryLine1}
             <br />
@@ -147,9 +191,29 @@ export function ArticleDetailSection({
       ) : isOwner ? (
         <div className="ai-box" style={{ textAlign: "center", padding: "24px" }}>
           <p style={{ color: "var(--ash)", marginBottom: "12px" }}>아직 AI 요약이 없습니다</p>
-          <button className="btn btn-solid" onClick={() => onGenerateSummary(article.id)}>
-            AI 요약 생성
+          <button
+            className="btn btn-solid"
+            disabled={isSummaryGenerating}
+            onClick={() => onGenerateSummary(article.id)}
+          >
+            {isSummaryGenerating ? "생성 중..." : "AI 요약 생성"}
           </button>
+          {summaryErrorMessage ? (
+            <div
+              role="alert"
+              style={{
+                marginTop: "12px",
+                padding: "10px 12px",
+                background: "rgba(239, 68, 68, 0.08)",
+                border: "1px solid rgba(239, 68, 68, 0.3)",
+                borderRadius: "8px",
+                fontSize: "13px",
+                color: "var(--error)",
+              }}
+            >
+              {summaryErrorMessage}
+            </div>
+          ) : null}
         </div>
       ) : null}
 

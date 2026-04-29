@@ -63,6 +63,9 @@ export function DetailRoute({
         articleErrorMessage={detail.articleErrorMessage}
         relatedLoading={detail.isRelatedLoading}
         relatedErrorMessage={detail.relatedErrorMessage}
+        summaryErrorMessage={detail.summaryErrorMessage}
+        isSummaryGenerating={detail.isSummaryGenerating}
+        onDismissSummaryError={detail.clearSummaryError}
         onHomeClick={() => navigate("/")}
         onCategoryClick={() => navigate("/")}
         onToggleSave={onToggleSave}

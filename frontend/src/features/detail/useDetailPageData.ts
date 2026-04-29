@@ -29,6 +29,10 @@ export function useDetailPageData({
   const [articleErrorMessage, setArticleErrorMessage] = useState("");
   const [isRelatedLoading, setIsRelatedLoading] = useState(true);
   const [relatedErrorMessage, setRelatedErrorMessage] = useState("");
+  // 요약 생성/재생성 실패는 페이지 전체 에러가 아니라 요약 카드 안에서만 보여야 한다.
+  // 그래서 articleErrorMessage와 별도 상태로 둔다.
+  const [summaryErrorMessage, setSummaryErrorMessage] = useState("");
+  const [isSummaryGenerating, setIsSummaryGenerating] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
@@ -90,6 +94,8 @@ export function useDetailPageData({
   }, [article, currentUserId]);
 
   async function regenerateSummary() {
+    setSummaryErrorMessage("");
+    setIsSummaryGenerating(true);
     try {
       const nextArticle = await generateArticleSummary(articleId);
       setArticle(nextArticle);
@@ -98,8 +104,17 @@ export function useDetailPageData({
         onAuthenticationRequired();
         return;
       }
-      setArticleErrorMessage(error instanceof Error ? error.message : "AI 요약 생성에 실패했습니다.");
+      // 요약 실패는 페이지 자체 에러가 아니다 — 요약 영역에만 메시지를 띄운다.
+      setSummaryErrorMessage(
+        error instanceof Error ? error.message : "AI 요약 생성에 실패했습니다.",
+      );
+    } finally {
+      setIsSummaryGenerating(false);
     }
+  }
+
+  function clearSummaryError() {
+    setSummaryErrorMessage("");
   }
 
   async function removeArticle() {
@@ -122,8 +137,11 @@ export function useDetailPageData({
     articleErrorMessage,
     isRelatedLoading,
     relatedErrorMessage,
+    summaryErrorMessage,
+    isSummaryGenerating,
     refresh: () => setRefreshKey((previous) => previous + 1),
     regenerateSummary,
+    clearSummaryError,
     removeArticle,
   };
 }

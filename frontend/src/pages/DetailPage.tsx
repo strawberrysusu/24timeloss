@@ -13,6 +13,9 @@ interface DetailPageProps {
   articleErrorMessage?: string;
   relatedLoading?: boolean;
   relatedErrorMessage?: string;
+  summaryErrorMessage?: string;
+  isSummaryGenerating?: boolean;
+  onDismissSummaryError?: () => void;
   onHomeClick: () => void;
   onCategoryClick: () => void;
   onToggleSave: (articleId: number) => void;
@@ -31,6 +34,9 @@ export function DetailPage({
   articleErrorMessage = "",
   relatedLoading = false,
   relatedErrorMessage = "",
+  summaryErrorMessage = "",
+  isSummaryGenerating = false,
+  onDismissSummaryError,
   onHomeClick,
   onCategoryClick,
   onToggleSave,
@@ -51,6 +57,9 @@ export function DetailPage({
               article={article}
               currentUser={currentUser}
               isSaved={article ? savedArticleIds.has(article.id) : false}
+              summaryErrorMessage={summaryErrorMessage}
+              isSummaryGenerating={isSummaryGenerating}
+              onDismissSummaryError={onDismissSummaryError}
               onToggleSave={onToggleSave}
               onGenerateSummary={onGenerateSummary}
               onEditArticle={onEditArticle}
