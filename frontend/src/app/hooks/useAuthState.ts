@@ -35,6 +35,14 @@ export function useAuthState() {
       setStoredToken(oauthToken);
       window.history.replaceState({}, "", window.location.pathname);
     }
+    const oauthError = params.get("oauth_error");
+    if (oauthError) {
+      const message = oauthError === "OAUTH_EMAIL_REQUIRED"
+        ? "이메일 동의 없이는 로그인할 수 없습니다. 다시 시도하면서 이메일 제공에 동의해 주세요."
+        : "소셜 로그인 중 문제가 발생했습니다.";
+      window.alert(message);
+      window.history.replaceState({}, "", window.location.pathname);
+    }
 
     async function bootstrap() {
       if (!getStoredToken()) {

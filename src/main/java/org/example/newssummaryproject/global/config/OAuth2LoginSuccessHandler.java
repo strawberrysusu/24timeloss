@@ -9,11 +9,13 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.env.Environment;
 import org.springframework.core.env.Profiles;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.web.authentication.SimpleUrlAuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
+import java.util.Map;
 
 /**
  * Google OAuth2 로그인 성공 시 JWT를 발급하고 프론트엔드로 리다이렉트한다.
@@ -39,11 +41,33 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response,
                                         Authentication authentication) throws IOException {
         OAuth2User oauth2User = (OAuth2User) authentication.getPrincipal();
-        String email = oauth2User.getAttribute("email");
-        String name = oauth2User.getAttribute("name");
-        String googleId = oauth2User.getAttribute("sub");
+        String registrationId = authentication instanceof OAuth2AuthenticationToken oauthToken
+                ? oauthToken.getAuthorizedClientRegistrationId()
+                : "google";
 
-        MemberResponse member = memberService.findOrCreateByGoogle(email, name, googleId);
+        MemberResponse member;
+        try {
+            member = switch (registrationId) {
+                case "naver" -> {
+                    Map<String, Object> responseAttributes = oauth2User.getAttribute("response");
+                    String email = getString(responseAttributes, "email");
+                    String name = getString(responseAttributes, "name");
+                    String naverId = getString(responseAttributes, "id");
+                    yield memberService.findOrCreateByNaver(email, name, naverId);
+                }
+                case "google" -> {
+                    String email = oauth2User.getAttribute("email");
+                    String name = oauth2User.getAttribute("name");
+                    String googleId = oauth2User.getAttribute("sub");
+                    yield memberService.findOrCreateByGoogle(email, name, googleId);
+                }
+                default -> throw new IllegalArgumentException("Unsupported OAuth2 provider: " + registrationId);
+            };
+        } catch (IllegalStateException e) {
+            // 네이버 이메일 미동의 등 → 사용자에게 친절한 에러로 리다이렉트
+            getRedirectStrategy().sendRedirect(request, response, "/?oauth_error=" + e.getMessage());
+            return;
+        }
 
         String accessToken = jwtProvider.createAccessToken(member.id(), member.email());
         String refreshToken = jwtProvider.createRefreshToken(member.id(), member.email());
@@ -51,6 +75,14 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
         addRefreshCookie(response, refreshToken);
 
         getRedirectStrategy().sendRedirect(request, response, "/?token=" + accessToken);
+    }
+
+    private String getString(Map<String, Object> attributes, String key) {
+        if (attributes == null) {
+            return null;
+        }
+        Object value = attributes.get(key);
+        return value instanceof String stringValue ? stringValue : null;
     }
 
     private void addRefreshCookie(HttpServletResponse response, String refreshToken) {

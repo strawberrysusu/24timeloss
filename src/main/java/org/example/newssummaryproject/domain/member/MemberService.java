@@ -96,15 +96,29 @@ public class MemberService {
      */
     @Transactional
     public MemberResponse findOrCreateByGoogle(String email, String name, String googleId) {
+        return findOrCreateByOAuth(email, name, "GOOGLE", googleId);
+    }
+
+    @Transactional
+    public MemberResponse findOrCreateByNaver(String email, String name, String naverId) {
+        return findOrCreateByOAuth(email, name, "NAVER", naverId);
+    }
+
+    private MemberResponse findOrCreateByOAuth(String email, String name, String provider, String providerId) {
+        if (email == null || email.isBlank()) {
+            // 네이버는 사용자가 이메일 동의를 거부하면 email을 안 줌 — 회원 식별 불가
+            throw new IllegalStateException("OAUTH_EMAIL_REQUIRED");
+        }
+        String safeName = (name != null && !name.isBlank()) ? name : email.split("@")[0];
         return memberRepository.findByEmail(email)
                 .map(MemberResponse::from)
                 .orElseGet(() -> {
                     Member member = Member.builder()
                             .email(email)
                             .password(passwordEncoder.encode(UUID.randomUUID().toString()))
-                            .nickname(name != null ? name : email.split("@")[0])
-                            .provider("GOOGLE")
-                            .providerId(googleId)
+                            .nickname(safeName)
+                            .provider(provider)
+                            .providerId(providerId)
                             .build();
                     return MemberResponse.from(memberRepository.save(member));
                 });
