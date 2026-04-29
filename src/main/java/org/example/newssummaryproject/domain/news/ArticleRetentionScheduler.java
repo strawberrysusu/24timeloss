@@ -47,12 +47,13 @@ public class ArticleRetentionScheduler {
     private int retentionDays;
 
     /**
-     * 매일 새벽 3시에 실행 (트래픽이 가장 적은 시간대).
+     * 매일 새벽 3시(KST)에 실행 (트래픽이 가장 적은 시간대).
      *
      * cron 6필드: 초 분 시 일 월 요일
      * "0 0 3 * * *" = 매일 03:00:00
+     * zone = "Asia/Seoul" — JVM TZ가 UTC라도 한국시간 03시에 실행됨.
      */
-    @Scheduled(cron = "0 0 3 * * *")
+    @Scheduled(cron = "0 0 3 * * *", zone = "Asia/Seoul")
     public void purgeOldUnsavedArticles() {
         if (retentionDays <= 0) {
             log.debug("ARTICLE_RETENTION_DAYS={} - retention 정리 비활성화", retentionDays);

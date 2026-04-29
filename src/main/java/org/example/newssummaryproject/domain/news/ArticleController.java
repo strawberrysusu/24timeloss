@@ -41,16 +41,28 @@ import java.util.Map;
 @RequestMapping("/api/articles")
 public class ArticleController {
 
+    /** 페이지당 최대 기사 수 — 음수/거대값으로 인한 DB 부하 방지. */
+    private static final int MAX_PAGE_SIZE = 50;
+
     private final ArticleService articleService;
     private final ArticleExtractService articleExtractService;
+
+    /**
+     * page는 0 이상, size는 1~MAX_PAGE_SIZE로 정규화한다.
+     * 음수/거대값을 그대로 PageRequest에 넘기면 IllegalArgumentException 또는 OOM 위험.
+     */
+    private static Pageable safePageable(int page, int size) {
+        int safePage = Math.max(page, 0);
+        int safeSize = Math.min(Math.max(size, 1), MAX_PAGE_SIZE);
+        return PageRequest.of(safePage, safeSize);
+    }
 
     @GetMapping
     public ResponseEntity<Page<ArticleListResponse>> getArticles(
             @RequestParam(required = false) Category category,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
-        Pageable pageable = PageRequest.of(page, size);
-        return ResponseEntity.ok(articleService.getArticles(category, pageable));
+        return ResponseEntity.ok(articleService.getArticles(category, safePageable(page, size)));
     }
 
     @GetMapping("/{id}")
@@ -63,8 +75,7 @@ public class ArticleController {
             @RequestParam String keyword,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
-        Pageable pageable = PageRequest.of(page, size);
-        return ResponseEntity.ok(articleService.search(keyword, pageable));
+        return ResponseEntity.ok(articleService.search(keyword, safePageable(page, size)));
     }
 
     /**
@@ -78,8 +89,7 @@ public class ArticleController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
         Long memberId = MemberController.getLoginMemberIdOrNull();
-        Pageable pageable = PageRequest.of(page, size);
-        return ResponseEntity.ok(articleService.recommend(memberId, pageable));
+        return ResponseEntity.ok(articleService.recommend(memberId, safePageable(page, size)));
     }
 
     @GetMapping("/{id}/related")

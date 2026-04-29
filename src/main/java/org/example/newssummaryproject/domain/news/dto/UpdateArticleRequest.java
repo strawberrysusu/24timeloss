@@ -1,5 +1,6 @@
 package org.example.newssummaryproject.domain.news.dto;
 
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import org.example.newssummaryproject.domain.news.Category;
 
@@ -22,14 +23,20 @@ public record UpdateArticleRequest(
         String source,
 
         @Size(max = 500, message = "URL은 500자 이하여야 합니다.")
+        @Pattern(regexp = "^$|^https?://.+", message = "URL은 http:// 또는 https://로 시작해야 합니다.")
         String originalUrl,
 
         // 선택: 대표 이미지 URL
         @Size(max = 500, message = "이미지 URL은 500자 이하여야 합니다.")
+        @Pattern(regexp = "^$|^https?://.+", message = "이미지 URL은 http:// 또는 https://로 시작해야 합니다.")
         String thumbnailUrl,
 
-        // 선택: 영상 임베드 URL (네이버 tv.naver.com/embed/... 등)
+        // 선택: 영상 임베드 URL — iframe으로 렌더되므로 임베드 전용 도메인만 허용한다.
         @Size(max = 500, message = "영상 URL은 500자 이하여야 합니다.")
+        @Pattern(
+                regexp = "^$|^https://(tv\\.naver\\.com/embed/|www\\.youtube\\.com/embed/|www\\.youtube-nocookie\\.com/embed/).+",
+                message = "영상 URL은 네이버 TV 또는 YouTube 임베드 주소만 허용됩니다."
+        )
         String videoEmbedUrl
 ) {
 }

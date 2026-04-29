@@ -2,6 +2,7 @@ package org.example.newssummaryproject.domain.news.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import org.example.newssummaryproject.domain.news.Category;
 
@@ -31,15 +32,21 @@ public record CreateArticleRequest(
 
         // 선택: 원문 기사 URL (없으면 null — 원문보기 버튼이 숨겨진다)
         @Size(max = 500, message = "URL은 500자 이하여야 합니다.")
+        @Pattern(regexp = "^$|^https?://.+", message = "URL은 http:// 또는 https://로 시작해야 합니다.")
         String originalUrl,
 
         // 선택: 대표 이미지 URL
         @Size(max = 500, message = "이미지 URL은 500자 이하여야 합니다.")
+        @Pattern(regexp = "^$|^https?://.+", message = "이미지 URL은 http:// 또는 https://로 시작해야 합니다.")
         String thumbnailUrl,
 
-        // 선택: 영상 임베드 URL (네이버 tv.naver.com/embed/... 등)
-        // 이 값이 있으면 자동으로 영상 기사로 판단된다
+        // 선택: 영상 임베드 URL — iframe으로 렌더되므로 임베드 전용 도메인만 허용한다.
+        // 외부 URL을 자유롭게 허용하면 피싱/추적/clickjacking 통로가 된다.
         @Size(max = 500, message = "영상 URL은 500자 이하여야 합니다.")
+        @Pattern(
+                regexp = "^$|^https://(tv\\.naver\\.com/embed/|www\\.youtube\\.com/embed/|www\\.youtube-nocookie\\.com/embed/).+",
+                message = "영상 URL은 네이버 TV 또는 YouTube 임베드 주소만 허용됩니다."
+        )
         String videoEmbedUrl
 ) {
 }

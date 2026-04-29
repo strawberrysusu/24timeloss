@@ -35,6 +35,7 @@ services:
     expose:
       - "8080"
     environment:
+      TZ: Asia/Seoul
       SPRING_PROFILES_ACTIVE: prod
       DB_URL: jdbc:mysql://db:3306/newspick?serverTimezone=Asia/Seoul&characterEncoding=UTF-8&useSSL=false&allowPublicKeyRetrieval=true
       DB_USERNAME: root
