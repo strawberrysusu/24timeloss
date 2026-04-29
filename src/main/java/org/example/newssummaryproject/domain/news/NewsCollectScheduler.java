@@ -33,6 +33,9 @@ public class NewsCollectScheduler {
     private final ArticleExtractService articleExtractService;
     private final ArticleRepository articleRepository;
 
+    @Value("${naver.news.collect-enabled:false}")
+    private boolean collectEnabled;
+
     @Value("${naver.news.collect-size:5}")
     private int collectSize;
 
@@ -57,6 +60,11 @@ public class NewsCollectScheduler {
      */
     @Scheduled(fixedDelay = 30 * 60 * 1000, initialDelay = 60 * 1000)
     public void collect() {
+        if (!collectEnabled) {
+            log.debug("NAVER_NEWS_COLLECT_ENABLED=false - 뉴스 자동 수집 스킵");
+            return;
+        }
+
         if (!naverNewsCollector.isEnabled()) {
             log.debug("NAVER_CLIENT_ID 미설정 — 뉴스 자동 수집 스킵");
             return;
