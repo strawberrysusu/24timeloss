@@ -10,7 +10,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import java.net.InetAddress;
 import java.net.SocketTimeoutException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.UnknownHostException;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -127,6 +131,7 @@ public class ArticleExtractService {
      */
     private static final int CONNECT_TIMEOUT_MS = 15_000;
     private static final int MAX_RETRIES = 1;
+    private static final int MAX_REDIRECTS = 3;
 
     public ExtractResult extract(String url) {
         Document doc = fetchDocument(url);
@@ -142,21 +147,72 @@ public class ArticleExtractService {
     }
 
     /**
-     * URL에서 HTML을 가져온다. timeout 시 1회 재시도한다.
+     * URL에서 HTML을 가져온다.
+     *
+     * ── SSRF 방어 ──
+     * 사용자가 임의의 URL을 넣을 수 있으므로, 호출 전에 반드시 검증한다:
+     *   - http/https 스킴만 허용
+     *   - host를 IP로 해석해서 loopback/private/link-local/멀티캐스트 차단
+     *     (예: 127.0.0.1, 10.x.x.x, 169.254.169.254 같은 내부망/메타데이터 주소)
+     *
+     * Jsoup 기본값(followRedirects=true)을 그대로 두면 redirect 도중 내부 IP로
+     * 우회될 수 있다. 그래서 followRedirects(false)로 두고 매 hop마다 재검증한다.
      */
     private Document fetchDocument(String url) {
-        SocketTimeoutException lastTimeout = null;
+        String currentUrl = url;
+        for (int hop = 0; hop <= MAX_REDIRECTS; hop++) {
+            assertSafeUrl(currentUrl);
 
+            Connection.Response response = requestWithRetry(currentUrl);
+            int status = response.statusCode();
+
+            // 200대면 그대로 반환
+            if (status >= 200 && status < 300) {
+                try {
+                    return response.parse();
+                } catch (Exception e) {
+                    log.error("기사 HTML 파싱 실패: url={}, error={}", currentUrl, e.getMessage());
+                    throw new IllegalArgumentException(
+                            "기사를 해석할 수 없습니다. URL을 확인해주세요.");
+                }
+            }
+
+            // 3xx면 Location 따라가서 재검증
+            if (status >= 300 && status < 400) {
+                String location = response.header("Location");
+                if (location == null || location.isBlank()) {
+                    throw new IllegalArgumentException("기사 페이지가 잘못된 응답을 보냈습니다.");
+                }
+                try {
+                    currentUrl = URI.create(currentUrl).resolve(location).toString();
+                } catch (IllegalArgumentException e) {
+                    throw new IllegalArgumentException("리다이렉트 URL이 잘못되었습니다.");
+                }
+                continue;
+            }
+
+            log.warn("기사 페이지 비정상 응답: status={}, url={}", status, currentUrl);
+            throw new IllegalArgumentException(
+                    "기사를 가져올 수 없습니다. (응답 코드: " + status + ")");
+        }
+
+        throw new IllegalArgumentException("리다이렉트가 너무 많습니다. URL을 확인해주세요.");
+    }
+
+    /**
+     * 단일 URL에 대해 1회 재시도까지 포함해서 GET 요청을 보낸다.
+     */
+    private Connection.Response requestWithRetry(String url) {
         for (int attempt = 0; attempt <= MAX_RETRIES; attempt++) {
             try {
-                Connection conn = Jsoup.connect(url)
+                return Jsoup.connect(url)
                         .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
                         .timeout(CONNECT_TIMEOUT_MS)
-                        .followRedirects(true)
-                        .referrer("https://www.google.com");
-                return conn.get();
+                        .followRedirects(false)
+                        .referrer("https://www.google.com")
+                        .ignoreHttpErrors(true)
+                        .execute();
             } catch (SocketTimeoutException e) {
-                lastTimeout = e;
                 log.warn("기사 페이지 타임아웃 ({}회차): url={}", attempt + 1, url);
             } catch (Exception e) {
                 log.error("기사 페이지 요청 실패: url={}, error={}", url, e.getMessage());
@@ -164,10 +220,61 @@ public class ArticleExtractService {
                         "기사를 가져올 수 없습니다. URL을 확인해주세요: " + e.getMessage());
             }
         }
-
         log.error("기사 페이지 타임아웃 (재시도 소진): url={}", url);
         throw new IllegalArgumentException(
                 "기사 페이지 응답이 너무 느립니다. 잠시 후 다시 시도해주세요.");
+    }
+
+    /**
+     * URL이 외부 공개 호스트를 가리키는지 검증한다.
+     *
+     * 차단 대상:
+     *   - http/https 외 스킴 (file://, gopher:// 등)
+     *   - host가 비어있거나 해석 실패
+     *   - loopback (127.0.0.0/8, ::1)
+     *   - link-local (169.254.0.0/16, fe80::/10) — AWS metadata 169.254.169.254 포함
+     *   - site-local / private (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, fc00::/7)
+     *   - any-local (0.0.0.0)
+     *   - multicast
+     *
+     * host가 여러 IP로 해석되는 경우(DNS 라운드로빈 등) 하나라도 위험하면 차단한다.
+     */
+    private void assertSafeUrl(String url) {
+        URI uri;
+        try {
+            uri = new URI(url);
+        } catch (URISyntaxException e) {
+            throw new IllegalArgumentException("URL 형식이 잘못되었습니다.");
+        }
+
+        String scheme = uri.getScheme();
+        if (scheme == null
+                || !(scheme.equalsIgnoreCase("http") || scheme.equalsIgnoreCase("https"))) {
+            throw new IllegalArgumentException("http 또는 https URL만 허용됩니다.");
+        }
+
+        String host = uri.getHost();
+        if (host == null || host.isBlank()) {
+            throw new IllegalArgumentException("URL에 호스트가 없습니다.");
+        }
+
+        InetAddress[] addresses;
+        try {
+            addresses = InetAddress.getAllByName(host);
+        } catch (UnknownHostException e) {
+            throw new IllegalArgumentException("URL의 호스트를 찾을 수 없습니다: " + host);
+        }
+
+        for (InetAddress addr : addresses) {
+            if (addr.isLoopbackAddress()
+                    || addr.isLinkLocalAddress()
+                    || addr.isSiteLocalAddress()
+                    || addr.isAnyLocalAddress()
+                    || addr.isMulticastAddress()) {
+                log.warn("SSRF 차단: host={}, ip={}", host, addr.getHostAddress());
+                throw new IllegalArgumentException("내부 네트워크 주소는 허용되지 않습니다.");
+            }
+        }
     }
 
     // ──────────────────────────────────────────────────────

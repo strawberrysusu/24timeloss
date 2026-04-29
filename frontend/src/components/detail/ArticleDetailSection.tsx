@@ -110,7 +110,11 @@ export function ArticleDetailSection({
               <button
                 className="btn btn-ghost"
                 style={{ marginLeft: "auto", fontSize: "12px", padding: "4px 10px" }}
-                onClick={() => onGenerateSummary(article.id)}
+                onClick={() => {
+                  if (window.confirm("AI 요약을 다시 생성하시겠어요? (외부 AI API 호출량을 사용합니다)")) {
+                    onGenerateSummary(article.id);
+                  }
+                }}
               >
                 재생성
               </button>

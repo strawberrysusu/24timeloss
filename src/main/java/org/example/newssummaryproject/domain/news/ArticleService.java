@@ -13,12 +13,15 @@ import org.example.newssummaryproject.domain.news.dto.CreateArticleRequest;
 import org.example.newssummaryproject.domain.news.dto.UpdateArticleRequest;
 import org.example.newssummaryproject.global.exception.ForbiddenException;
 import org.example.newssummaryproject.global.exception.NotFoundException;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
@@ -27,6 +30,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 /*
@@ -64,6 +68,14 @@ public class ArticleService {
     private final SavedArticleRepository savedArticleRepository;
     // 읽기 기록 삭제 (기사 삭제 시 연쇄 삭제용)
     private final ArticleReadHistoryRepository articleReadHistoryRepository;
+
+    // ── AI 요약 cooldown ──
+    // 같은 기사에 대해 짧은 시간 내 반복 호출을 막아 NVIDIA API 사용량을 보호한다.
+    // 인메모리라 서버 재시작/스케일아웃 시 초기화되지만, 단일 인스턴스 마감 환경에선 충분하다.
+    // 0 이하로 설정하면 cooldown을 끈다 (테스트 환경용).
+    @Value("${article.summary-cooldown-seconds:30}")
+    private long summaryCooldownSeconds;
+    private final Map<Long, Instant> lastSummaryAttempt = new ConcurrentHashMap<>();
 
     /**
      * 카테고리별 기사 목록을 최신순으로 페이지네이션 조회한다.
@@ -278,6 +290,19 @@ public class ArticleService {
         // 본문이 없으면 요약할 수 없다
         if (article.getContent() == null || article.getContent().isBlank()) {
             throw new IllegalArgumentException("기사 본문이 없어서 요약을 생성할 수 없습니다.");
+        }
+
+        // 같은 기사에 대해 cooldown 시간 내 반복 호출 방지 (외부 API 사용량 보호)
+        if (summaryCooldownSeconds > 0) {
+            Duration cooldown = Duration.ofSeconds(summaryCooldownSeconds);
+            Instant now = Instant.now();
+            Instant previous = lastSummaryAttempt.get(articleId);
+            if (previous != null && Duration.between(previous, now).compareTo(cooldown) < 0) {
+                long remaining = cooldown.minus(Duration.between(previous, now)).getSeconds() + 1;
+                throw new IllegalArgumentException(
+                        "잠시 후 다시 시도해주세요. (" + remaining + "초 후 재요청 가능)");
+            }
+            lastSummaryAttempt.put(articleId, now);
         }
 
         // AI 요약 생성

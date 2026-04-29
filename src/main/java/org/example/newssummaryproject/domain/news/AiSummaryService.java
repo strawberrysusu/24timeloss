@@ -131,7 +131,17 @@ public class AiSummaryService {
             if (status != 200) {
                 String errorBody = readStream(conn.getErrorStream());
                 log.error("AI API 에러 응답 [{}]: {}", status, errorBody);
-                throw new AiSummaryException("AI API 호출 실패 (" + status + "): " + errorBody);
+                // 429(Too Many Requests) / 503(Service Unavailable) 같은 외부 사용량 제한은
+                // 사용자에게 그대로 보여줘도 의미 없으므로 친화적인 메시지로 바꿔준다.
+                if (status == 429) {
+                    throw new AiSummaryException(
+                            "AI 사용량 제한에 도달했어요. 잠시 후 다시 시도해주세요.");
+                }
+                if (status == 503 || status == 504) {
+                    throw new AiSummaryException(
+                            "AI 서버가 일시적으로 응답하지 않습니다. 잠시 후 다시 시도해주세요.");
+                }
+                throw new AiSummaryException("AI 요약 생성에 실패했습니다. (코드: " + status + ")");
             }
 
             // 6. 스트리밍 응답 읽기 — 조각들을 모은다
