@@ -35,7 +35,7 @@ public class SecurityConfig {
                                 ? SessionCreationPolicy.IF_REQUIRED
                                 : SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/members/signup", "/api/members/login", "/api/members/refresh", "/api/members/logout").permitAll()
+                        .requestMatchers("/api/members/signup", "/api/members/login", "/api/members/refresh", "/api/members/logout", "/api/members/oauth/exchange").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/articles/**").permitAll()
                         .requestMatchers("/", "/detail/**", "/mypage").permitAll()
                         .requestMatchers("/css/**", "/js/**", "/images/**", "/react/**", "/favicon.ico").permitAll()

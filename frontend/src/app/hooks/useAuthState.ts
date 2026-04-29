@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 
 import {
+  exchangeOAuthCode,
   getCurrentUser,
   loginMember,
   logoutMember,
   signupMember,
 } from "../../shared/api/members";
-import { clearStoredToken, getStoredToken, setStoredToken } from "../../shared/api/http";
+import { clearStoredToken, getStoredToken } from "../../shared/api/http";
 import type { CurrentUser } from "../../shared/types/member";
 
 export type AuthMode = "login" | "signup";
@@ -28,14 +29,10 @@ export function useAuthState() {
   useEffect(() => {
     let cancelled = false;
 
-    // OAuth2 리다이렉트에서 돌아온 경우 URL의 token 파라미터를 저장한다
     const params = new URLSearchParams(window.location.search);
-    const oauthToken = params.get("token");
-    if (oauthToken) {
-      setStoredToken(oauthToken);
-      window.history.replaceState({}, "", window.location.pathname);
-    }
+    const oauthCode = params.get("oauth_code");
     const oauthError = params.get("oauth_error");
+
     if (oauthError) {
       const message = oauthError === "OAUTH_EMAIL_REQUIRED"
         ? "이메일 동의 없이는 로그인할 수 없습니다. 다시 시도하면서 이메일 제공에 동의해 주세요."
@@ -45,6 +42,25 @@ export function useAuthState() {
     }
 
     async function bootstrap() {
+      // OAuth 1회용 코드를 access token으로 교환한다 (URL에서 코드를 즉시 제거하여 노출 시간 최소화).
+      if (oauthCode) {
+        window.history.replaceState({}, "", window.location.pathname);
+        try {
+          const user = await exchangeOAuthCode(oauthCode);
+          if (!cancelled) {
+            setCurrentUser(user);
+          }
+          return;
+        } catch {
+          if (!cancelled) {
+            clearStoredToken();
+            setCurrentUser(null);
+            window.alert("소셜 로그인 인증에 실패했습니다. 다시 시도해주세요.");
+          }
+          return;
+        }
+      }
+
       if (!getStoredToken()) {
         setCurrentUser(null);
         return;

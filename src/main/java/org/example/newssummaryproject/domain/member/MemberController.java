@@ -28,6 +28,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.Map;
+
 /*
  * ── 회원 컨트롤러 ──
  *
@@ -48,6 +50,7 @@ public class MemberController {
     private final AuthenticationManager authenticationManager;
     private final JwtProvider jwtProvider;
     private final RefreshTokenService refreshTokenService;
+    private final OAuthCodeExchangeService oauthCodeExchangeService;
     private final Environment environment;
 
     @Value("${jwt.refresh-expiration-days:7}")
@@ -145,6 +148,29 @@ public class MemberController {
                 + "; Max-Age=0"
                 + "; SameSite=" + sameSite);
         return ResponseEntity.ok().build();
+    }
+
+    /**
+     * OAuth 1회용 코드 → access token 교환 — POST /api/members/oauth/exchange
+     *
+     * OAuth2LoginSuccessHandler가 발급한 oauth_code를 access token + refresh cookie로 교환한다.
+     * code는 1회용이고 60초 후 만료된다.
+     */
+    @PostMapping("/oauth/exchange")
+    public ResponseEntity<LoginResponse> exchangeOAuthCode(
+            @RequestBody Map<String, String> body,
+            HttpServletResponse response) {
+        String code = body == null ? null : body.get("code");
+        Long memberId = oauthCodeExchangeService.redeem(code);
+
+        MemberResponse member = memberService.getMember(memberId);
+        String accessToken = jwtProvider.createAccessToken(member.id(), member.email());
+        String refreshToken = jwtProvider.createRefreshToken(member.id(), member.email());
+
+        refreshTokenService.register(member.id(), refreshToken);
+        addRefreshCookie(response, refreshToken);
+
+        return ResponseEntity.ok(LoginResponse.of(accessToken, member));
     }
 
     /**

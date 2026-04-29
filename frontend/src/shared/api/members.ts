@@ -34,6 +34,20 @@ export async function signupMember(payload: SignupPayload): Promise<CurrentUser>
   return { id: data.id, email: data.email, nickname: data.nickname };
 }
 
+/**
+ * OAuth 1회용 코드를 access token으로 교환한다.
+ * OAuth2LoginSuccessHandler가 발급한 oauth_code를 받아서 server에 POST하면
+ * access token + refresh cookie가 발급된다.
+ */
+export async function exchangeOAuthCode(code: string): Promise<CurrentUser> {
+  const data = await apiRequest<LoginResponseData>("/api/members/oauth/exchange", {
+    method: "POST",
+    body: JSON.stringify({ code }),
+  });
+  setStoredToken(data.token);
+  return { id: data.id, email: data.email, nickname: data.nickname };
+}
+
 export async function logoutMember(): Promise<void> {
   // 서버에서 httpOnly refresh 쿠키를 삭제한다
   await apiRequest<void>("/api/members/logout", { method: "POST" }).catch(() => undefined);
