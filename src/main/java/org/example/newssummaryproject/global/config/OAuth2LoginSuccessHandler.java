@@ -4,6 +4,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.example.newssummaryproject.domain.member.MemberService;
+import org.example.newssummaryproject.domain.member.RefreshTokenService;
 import org.example.newssummaryproject.domain.member.dto.MemberResponse;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.env.Environment;
@@ -32,6 +33,7 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
 
     private final MemberService memberService;
     private final JwtProvider jwtProvider;
+    private final RefreshTokenService refreshTokenService;
     private final Environment environment;
 
     @Value("${jwt.refresh-expiration-days:7}")
@@ -72,6 +74,7 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
         String accessToken = jwtProvider.createAccessToken(member.id(), member.email());
         String refreshToken = jwtProvider.createRefreshToken(member.id(), member.email());
 
+        refreshTokenService.register(member.id(), refreshToken);
         addRefreshCookie(response, refreshToken);
 
         getRedirectStrategy().sendRedirect(request, response, "/?token=" + accessToken);

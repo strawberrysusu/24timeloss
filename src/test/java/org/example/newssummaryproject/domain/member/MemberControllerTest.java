@@ -27,6 +27,9 @@ class MemberControllerTest {
     @Autowired
     MockMvc mockMvc;
 
+    @Autowired
+    RefreshTokenRepository refreshTokenRepository;
+
     private String signupAndGetToken(String email, String password, String nickname) throws Exception {
         MvcResult result = mockMvc.perform(post("/api/members/signup")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -191,5 +194,63 @@ class MemberControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"email\":\"dup@test.com\",\"password\":\"5678\",\"nickname\":\"duplicate-user\"}"))
                 .andExpect(status().isConflict());
+    }
+
+    // ── Refresh Token Rotation 보안 동작 ──
+
+    /**
+     * /refresh 후 기존 refresh token은 즉시 폐기되어 다시 사용할 수 없어야 한다.
+     */
+    @Test
+    void refresh_rotates_token_old_one_becomes_unusable() throws Exception {
+        Cookie firstCookie = signupAndGetRefreshCookie("rotate@test.com", "rotate-user");
+
+        // 1차 refresh — 정상 동작
+        mockMvc.perform(post("/api/members/refresh").cookie(firstCookie))
+                .andExpect(status().isOk());
+
+        // 같은(이미 회전된) 쿠키로 다시 시도 — 재사용 탐지 → 401
+        mockMvc.perform(post("/api/members/refresh").cookie(firstCookie))
+                .andExpect(status().isUnauthorized());
+    }
+
+    /**
+     * 재사용 탐지 시 해당 회원의 모든 활성 refresh token이 일괄 폐기되어야 한다.
+     * (탈취된 토큰 + 정상 사용자 토큰을 모두 강제 로그아웃하는 보안 정책)
+     */
+    @Test
+    void refresh_token_reuse_revokes_all_tokens_for_member() throws Exception {
+        Cookie firstCookie = signupAndGetRefreshCookie("reuse@test.com", "reuse-user");
+
+        // 1차 refresh로 firstCookie를 사용함 → DB에서 revoked 처리됨
+        MvcResult firstRefresh = mockMvc.perform(post("/api/members/refresh").cookie(firstCookie))
+                .andExpect(status().isOk())
+                .andReturn();
+        Cookie secondCookie = firstRefresh.getResponse().getCookie("refresh_token");
+
+        // 이미 폐기된 firstCookie를 다시 시도 → 재사용 탐지 → 회원의 모든 토큰 폐기
+        mockMvc.perform(post("/api/members/refresh").cookie(firstCookie))
+                .andExpect(status().isUnauthorized());
+
+        // 이전 단계의 secondCookie도 일괄 폐기되었으므로 사용 불가여야 한다
+        mockMvc.perform(post("/api/members/refresh").cookie(secondCookie))
+                .andExpect(status().isUnauthorized());
+    }
+
+    /**
+     * 로그아웃 시 서버 측 refresh token도 폐기되어야 한다.
+     * 쿠키만 지우면 클라이언트 측 무효화일 뿐 — 토큰을 갖고 있던 공격자는 여전히 사용 가능.
+     */
+    @Test
+    void logout_revokes_refresh_token_server_side() throws Exception {
+        Cookie refreshCookie = signupAndGetRefreshCookie("logout-revoke@test.com", "logout-user");
+
+        // 로그아웃
+        mockMvc.perform(post("/api/members/logout").cookie(refreshCookie))
+                .andExpect(status().isOk());
+
+        // 같은 쿠키로 refresh 시도 → 폐기되었으므로 401
+        mockMvc.perform(post("/api/members/refresh").cookie(refreshCookie))
+                .andExpect(status().isUnauthorized());
     }
 }

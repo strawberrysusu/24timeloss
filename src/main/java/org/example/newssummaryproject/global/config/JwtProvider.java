@@ -14,6 +14,7 @@ import org.springframework.stereotype.Component;
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
+import java.util.UUID;
 
 /**
  * JWT 토큰 생성/검증/파싱을 담당한다.
@@ -72,7 +73,10 @@ public class JwtProvider {
 
     private String createToken(Long memberId, String email, String type, long expirationMillis) {
         Date now = new Date();
+        // jti: 매 토큰마다 고유한 랜덤 ID. 같은 밀리초에 발급된 토큰끼리도 절대 같지 않게 보장한다.
+        // refresh token DB 저장 시 unique 해시 제약 위반을 방지한다.
         return Jwts.builder()
+                .id(UUID.randomUUID().toString())
                 .subject(String.valueOf(memberId))
                 .claim("email", email)
                 .claim("type", type)

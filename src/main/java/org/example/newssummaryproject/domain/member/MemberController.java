@@ -47,6 +47,7 @@ public class MemberController {
     private final MemberService memberService;
     private final AuthenticationManager authenticationManager;
     private final JwtProvider jwtProvider;
+    private final RefreshTokenService refreshTokenService;
     private final Environment environment;
 
     @Value("${jwt.refresh-expiration-days:7}")
@@ -63,6 +64,7 @@ public class MemberController {
         String accessToken = jwtProvider.createAccessToken(member.id(), member.email());
         String refreshToken = jwtProvider.createRefreshToken(member.id(), member.email());
 
+        refreshTokenService.register(member.id(), refreshToken);
         addRefreshCookie(response, refreshToken);
 
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -87,6 +89,7 @@ public class MemberController {
         String accessToken = jwtProvider.createAccessToken(member.id(), member.email());
         String refreshToken = jwtProvider.createRefreshToken(member.id(), member.email());
 
+        refreshTokenService.register(member.id(), refreshToken);
         addRefreshCookie(response, refreshToken);
 
         return ResponseEntity.ok(LoginResponse.of(accessToken, member));
@@ -95,8 +98,10 @@ public class MemberController {
     /**
      * 토큰 재발급 — POST /api/members/refresh
      *
-     * httpOnly 쿠키에서 refresh token을 읽어서 새 access + refresh를 발급한다.
-     * Refresh Token Rotation: 재발급 시 refresh도 새로 교체한다.
+     * 1. JWT 서명/형식 검증 (JwtProvider)
+     * 2. DB에 등록된 활성 토큰인지 검증 + 즉시 폐기 (RefreshTokenService)
+     *    - 이미 폐기된 토큰이 다시 들어오면 → 탈취 의심 → 해당 회원 모든 토큰 일괄 폐기
+     * 3. 새 access + refresh 발급, 새 refresh도 DB에 등록
      */
     @PostMapping("/refresh")
     public ResponseEntity<LoginResponse> refresh(
@@ -106,26 +111,31 @@ public class MemberController {
             throw new UnauthorizedException("유효하지 않은 리프레시 토큰입니다.");
         }
 
-        Long memberId = jwtProvider.getMemberId(refreshToken);
-        String email = jwtProvider.getEmail(refreshToken);
-
-        String newAccessToken = jwtProvider.createAccessToken(memberId, email);
-        String newRefreshToken = jwtProvider.createRefreshToken(memberId, email);
-
-        addRefreshCookie(response, newRefreshToken);
+        Long memberId = refreshTokenService.validateAndRevoke(refreshToken);
 
         MemberResponse member = memberService.getMember(memberId);
+        String newAccessToken = jwtProvider.createAccessToken(memberId, member.email());
+        String newRefreshToken = jwtProvider.createRefreshToken(memberId, member.email());
+
+        refreshTokenService.register(memberId, newRefreshToken);
+        addRefreshCookie(response, newRefreshToken);
+
         return ResponseEntity.ok(LoginResponse.of(newAccessToken, member));
     }
 
     /**
      * 로그아웃 — POST /api/members/logout
      *
-     * httpOnly 쿠키를 maxAge=0으로 덮어써서 브라우저에서 삭제한다.
-     * refresh token이 사라지면 access token이 만료된 후 재발급이 불가능하다.
+     * 1. DB에서 해당 refresh token 폐기 (서버 측 무효화)
+     * 2. httpOnly 쿠키를 maxAge=0으로 덮어써서 브라우저에서도 삭제
+     * → access token이 만료되면 재발급 불가 → 사실상 세션 종료.
      */
     @PostMapping("/logout")
-    public ResponseEntity<Void> logout(HttpServletResponse response) {
+    public ResponseEntity<Void> logout(
+            @CookieValue(name = REFRESH_COOKIE_NAME, required = false) String refreshToken,
+            HttpServletResponse response) {
+        refreshTokenService.revoke(refreshToken);
+
         boolean secure = isProd();
         String sameSite = secure ? "Strict" : "Lax";
         response.addHeader("Set-Cookie",
