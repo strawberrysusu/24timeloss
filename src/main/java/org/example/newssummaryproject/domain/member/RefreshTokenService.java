@@ -93,7 +93,7 @@ public class RefreshTokenService {
 
     /**
      * 회원의 모든 활성 토큰을 폐기한다.
-     * 비밀번호 변경 등 보안 이벤트에서 호출할 수 있다 (현재 미사용, 확장 대비).
+     * 비밀번호 변경 등 보안 이벤트에서 호출된다 — 탈취된 세션의 잔존을 막는다.
      */
     @Transactional
     public void revokeAllForMember(Long memberId) {

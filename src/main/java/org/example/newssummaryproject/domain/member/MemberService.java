@@ -34,9 +34,10 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class MemberService {
 
-    // Spring이 생성자 주입(Constructor Injection)으로 아래 두 객체를 자동으로 넣어준다.
+    // Spring이 생성자 주입(Constructor Injection)으로 아래 객체들을 자동으로 넣어준다.
     private final MemberRepository memberRepository;   // DB 조회/저장 담당
     private final PasswordEncoder passwordEncoder;      // BCrypt 암호화 담당
+    private final RefreshTokenService refreshTokenService;  // 비밀번호 변경 시 기존 세션 폐기용
 
     /**
      * 회원가입을 처리한다.
@@ -157,5 +158,9 @@ public class MemberService {
 
         // 새 비밀번호도 반드시 BCrypt로 암호화해서 저장한다
         member.updatePassword(passwordEncoder.encode(newPassword));
+
+        // 비밀번호 변경은 보안 이벤트 — 탈취된 세션이 비밀번호 변경 후에도 유지되는 것을 막기 위해
+        // 기존 refresh token을 모두 폐기해 다른 기기/세션을 강제 로그아웃시킨다.
+        refreshTokenService.revokeAllForMember(memberId);
     }
 }

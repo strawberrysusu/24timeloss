@@ -45,6 +45,9 @@ import java.util.Map;
 public class MemberController {
 
     private static final String REFRESH_COOKIE_NAME = "refresh_token";
+    // /api/members 하위 모든 엔드포인트(/refresh, /logout)에서 쿠키를 받기 위해 path를 좁히되 logout까지 포함시킨다.
+    // /refresh로만 좁히면 logout 요청 때 브라우저가 쿠키를 보내지 않아 서버가 토큰을 폐기하지 못한다.
+    private static final String REFRESH_COOKIE_PATH = "/api/members";
 
     private final MemberService memberService;
     private final AuthenticationManager authenticationManager;
@@ -144,7 +147,7 @@ public class MemberController {
         response.addHeader("Set-Cookie",
                 REFRESH_COOKIE_NAME + "="
                 + "; HttpOnly" + (secure ? "; Secure" : "")
-                + "; Path=/api/members/refresh"
+                + "; Path=" + REFRESH_COOKIE_PATH
                 + "; Max-Age=0"
                 + "; SameSite=" + sameSite);
         return ResponseEntity.ok().build();
@@ -205,7 +208,7 @@ public class MemberController {
      *
      * - httpOnly: JS에서 document.cookie로 접근 불가 → XSS 방어
      * - secure: prod에서만 true (HTTPS 필수). dev/test에서는 false (HTTP 허용)
-     * - path: /api/members/refresh 로만 전송 → 다른 API에 불필요하게 붙지 않음
+     * - path: /api/members 로 한정 → /refresh, /logout 모두에 자동 전송, 다른 API에는 불필요하게 붙지 않음
      * - SameSite: prod=Strict (CSRF 방어), dev=Lax (로컬 개발 편의)
      */
     private void addRefreshCookie(HttpServletResponse response, String refreshToken) {
@@ -216,7 +219,7 @@ public class MemberController {
         response.addHeader("Set-Cookie",
                 REFRESH_COOKIE_NAME + "=" + refreshToken
                 + "; HttpOnly" + (secure ? "; Secure" : "")
-                + "; Path=/api/members/refresh"
+                + "; Path=" + REFRESH_COOKIE_PATH
                 + "; Max-Age=" + maxAge
                 + "; SameSite=" + sameSite);
     }

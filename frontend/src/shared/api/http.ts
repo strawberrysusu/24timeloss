@@ -65,12 +65,26 @@ async function refreshAccessToken(): Promise<string | null> {
   }
 }
 
+// 동시에 여러 요청이 401을 받아도 refresh 호출은 1번만 실행되도록 in-flight Promise를 공유한다.
+// 그렇지 않으면 후속 요청이 이미 폐기된(rotation된) refresh token으로 재요청 → 백엔드가 재사용으로 판단해
+// 회원 전체 토큰을 일괄 폐기하고 사용자가 강제 로그아웃되는 문제가 생긴다.
+let refreshPromise: Promise<string | null> | null = null;
+
+function getFreshAccessToken(): Promise<string | null> {
+  if (!refreshPromise) {
+    refreshPromise = refreshAccessToken().finally(() => {
+      refreshPromise = null;
+    });
+  }
+  return refreshPromise;
+}
+
 export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetchWithAuth(path, init);
 
   // 401이면 refresh 쿠키로 자동 갱신 시도
   if (response.status === 401) {
-    const newToken = await refreshAccessToken();
+    const newToken = await getFreshAccessToken();
     if (newToken) {
       const retryResponse = await fetchWithAuth(path, init);
       return handleResponse<T>(retryResponse);

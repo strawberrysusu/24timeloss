@@ -2,9 +2,12 @@ package org.example.newssummaryproject.global.exception;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 /**
  * 모든 예외를 통일된 ErrorResponse 형식으로 반환하는 전역 예외 핸들러다.
@@ -82,5 +85,28 @@ public class GlobalExceptionHandler {
                 .orElse("입력값이 올바르지 않습니다.");
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(ErrorResponse.of(400, "VALIDATION_ERROR", message));
+    }
+
+    // 400 — JSON 파싱 실패 (잘못된 JSON, body 누락, enum 매칭 실패 등)
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidJson(HttpMessageNotReadableException e) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ErrorResponse.of(400, "INVALID_JSON", "요청 JSON 형식이 올바르지 않습니다."));
+    }
+
+    // 400 — query/path 파라미터 타입 불일치 (예: ?category=INVALID 같은 enum 매칭 실패, ?id=abc 같은 숫자 변환 실패)
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ErrorResponse> handleTypeMismatch(MethodArgumentTypeMismatchException e) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ErrorResponse.of(400, "INVALID_PARAMETER",
+                        "요청 파라미터 값이 올바르지 않습니다: " + e.getName()));
+    }
+
+    // 400 — 필수 query 파라미터 누락 (예: /search 인데 keyword 안 넘긴 경우)
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<ErrorResponse> handleMissingParam(MissingServletRequestParameterException e) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ErrorResponse.of(400, "MISSING_PARAMETER",
+                        "필수 파라미터가 누락되었습니다: " + e.getParameterName()));
     }
 }
