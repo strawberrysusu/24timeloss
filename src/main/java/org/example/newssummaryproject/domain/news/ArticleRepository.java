@@ -3,6 +3,7 @@ package org.example.newssummaryproject.domain.news;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -37,6 +38,17 @@ public interface ArticleRepository extends JpaRepository<Article, Long> {
     // ── 트렌딩: 조회수 높은 순 + 같은 조회수면 최신순 ──
     @Query("SELECT a FROM Article a ORDER BY a.viewCount DESC, a.publishedAt DESC")
     Page<Article> findTrending(Pageable pageable);
+
+    /**
+     * 조회수를 DB 레벨에서 원자적으로 1 증가시킨다.
+     *
+     * dirty checking 방식(엔티티 로드 후 viewCount++)은 동시 조회 시 lost update 위험이 있다.
+     * (요청 A,B가 동시에 같은 viewCount를 읽고 +1 → 둘 다 같은 값으로 UPDATE → 1번만 증가)
+     * UPDATE 쿼리로 직접 +1을 날리면 DB가 row 단위로 직렬화해 정확히 누적된다.
+     */
+    @Modifying(clearAutomatically = true)
+    @Query("UPDATE Article a SET a.viewCount = a.viewCount + 1 WHERE a.id = :id")
+    int incrementViewCount(@Param("id") Long id);
 
     // ── 관련 뉴스: 제목에 특정 키워드가 포함된 기사 (현재 기사 제외) ──
     @Query("SELECT a FROM Article a WHERE a.id != :excludeId AND a.title LIKE %:keyword% ORDER BY a.publishedAt DESC")

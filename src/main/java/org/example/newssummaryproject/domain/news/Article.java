@@ -128,13 +128,4 @@ public class Article extends BaseTimeEntity {
             this.hasVideo = this.videoEmbedUrl != null;
         }
     }
-
-    /**
-     * 조회수를 1 올린다.
-     * 기사 상세 페이지에 들어올 때마다 호출된다.
-     * JPA의 dirty checking이 자동으로 UPDATE 쿼리를 날려준다.
-     */
-    public void incrementViewCount() {
-        this.viewCount++;
-    }
 }

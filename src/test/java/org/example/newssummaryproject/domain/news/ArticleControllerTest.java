@@ -455,12 +455,30 @@ class ArticleControllerTest {
                 .andExpect(jsonPath("$.code").value("FORBIDDEN"));
     }
 
+    // 자동수집(seed) 기사: writer가 없고 요약도 아직 없으면 로그인 사용자가 최초 1회 생성 가능 (B안 정책)
     @Test
-    void generate_summary_for_seed_article_returns_forbidden() throws Exception {
+    void generate_summary_for_seed_article_without_summary_succeeds() throws Exception {
         String token = signupAndGetToken("ai5@test.com", "ai-user-five");
 
         mockMvc.perform(post("/api/articles/" + article1.getId() + "/generate-summary")
                         .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.summary").exists());
+    }
+
+    // seed 기사도 요약이 이미 있으면 소유자가 없으니 누구도 재생성할 수 없다 — 비용/덮어쓰기 방지.
+    @Test
+    void regenerate_summary_for_seed_article_returns_forbidden() throws Exception {
+        String firstToken = signupAndGetToken("ai5a@test.com", "ai-user-five-a");
+        // 1차: 요약 생성 성공
+        mockMvc.perform(post("/api/articles/" + article1.getId() + "/generate-summary")
+                        .header("Authorization", "Bearer " + firstToken))
+                .andExpect(status().isOk());
+
+        // 2차: 다른 로그인 사용자가 재생성 시도 → 403
+        String secondToken = signupAndGetToken("ai5b@test.com", "ai-user-five-b");
+        mockMvc.perform(post("/api/articles/" + article1.getId() + "/generate-summary")
+                        .header("Authorization", "Bearer " + secondToken))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("FORBIDDEN"));
     }

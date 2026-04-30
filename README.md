@@ -278,12 +278,15 @@ OAuth2LoginSuccessHandler:
 
 ## 알려진 제한 사항
 
-- **기사 추출**: 사이트별 HTML 구조에 의존하므로 구조 변경 시 추출 실패 가능
-- **nip.io 도메인**: IP 기반 임시 도메인. 실서비스에는 정식 도메인 필요
-- **운영 모니터링**: Actuator health 엔드포인트만 존재. 로그 수집/알림 미구축
-- **AI 요약**: NVIDIA NIM API 무료 크레딧 기반. 크레딧 소진 시 mock 모드로 전환 필요
-- **AI cooldown 저장소**: 인메모리 Map 기반이라 서버 재시작/스케일아웃 시 초기화됩니다 (단일 인스턴스 운영 전제)
-- **Refresh token 정리**: 만료된 token도 DB에 남아있음 (volume이 작아 별도 cleanup 스케줄러 미구현)
+문제를 모르는 게 아니라 **트레이드오프를 인지한 상태에서 현재 범위를 의도적으로 좁혔다**는 의미로 정리한다.
+
+- **Access token이 localStorage에 저장됨**: XSS가 발생하면 토큰 탈취 위험이 있다. 현재는 CSP/입력 정제 + httpOnly refresh cookie + DB-stateful refresh rotation으로 피해를 제한하고 있고, 추후 access token을 메모리에만 두고 refresh로 매번 재발급하거나 BFF 패턴으로 옮길 수 있다.
+- **검색은 LIKE 기반**: `title LIKE %k% OR content LIKE %k%`라 데이터가 늘면 풀스캔 비용이 커진다. 인덱스 활용을 위해 MySQL FULLTEXT 또는 Meilisearch/OpenSearch로 단계적 전환을 고려한다.
+- **AI cooldown 저장소**: 인메모리 Map 기반이라 서버 재시작/스케일아웃 시 초기화된다 (단일 인스턴스 운영 전제 — 다중 인스턴스화 시 Redis 등 외부 저장소로 이동).
+- **AI 요약**: NVIDIA NIM API 무료 크레딧 기반. 크레딧 소진 시 mock 모드로 전환 필요.
+- **기사 추출**: 사이트별 HTML 구조에 의존하므로 구조 변경 시 추출 실패 가능 (catch 후 스킵 — 전체 수집은 계속 동작).
+- **nip.io 도메인**: IP 기반 임시 도메인. 실서비스에는 정식 도메인 필요.
+- **운영 모니터링**: Actuator health 엔드포인트만 존재. 로그 수집/알림 미구축.
 
 ## 프로젝트 구조
 

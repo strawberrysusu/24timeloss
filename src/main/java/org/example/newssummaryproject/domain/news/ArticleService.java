@@ -92,16 +92,21 @@ public class ArticleService {
     /**
      * 기사 상세 정보를 조회하고, 조회수를 1 올린다.
      *
-     * 조회수가 올라가야 하므로 readOnly가 아닌 일반 @Transactional을 쓴다.
-     * JPA의 dirty checking이 자동으로 UPDATE view_count 쿼리를 날려준다.
+     * 동시 조회로 인한 lost update를 막기 위해 dirty checking 대신
+     * UPDATE view_count = view_count + 1 쿼리를 직접 날린다 (DB row-level atomic).
+     * UPDATE 후 영속성 컨텍스트가 비워지므로 findById로 갱신된 값을 다시 읽는다.
      */
     @Transactional
     public ArticleDetailResponse getArticle(Long articleId) {
+        // 존재 여부를 먼저 검증해 NotFound면 404로 떨군다 (없는 id에 UPDATE 0건 → 무조건 404 응답이 되어 메시지가 모호해지므로).
+        if (!articleRepository.existsById(articleId)) {
+            throw new NotFoundException("기사를 찾을 수 없습니다. id=" + articleId);
+        }
+
+        articleRepository.incrementViewCount(articleId);
+
         Article article = articleRepository.findById(articleId)
                 .orElseThrow(() -> new NotFoundException("기사를 찾을 수 없습니다. id=" + articleId));
-
-        // 조회수 증가 → 트렌딩에 반영된다
-        article.incrementViewCount();
 
         ArticleSummary summary = articleSummaryRepository.findByArticleId(articleId)
                 .orElse(null);
@@ -285,7 +290,8 @@ public class ArticleService {
         Article article = articleRepository.findById(articleId)
                 .orElseThrow(() -> new NotFoundException("기사를 찾을 수 없습니다. id=" + articleId));
 
-        checkSummaryGenerationPermission(article, memberId);
+        ArticleSummary existingSummary = articleSummaryRepository.findByArticleId(articleId).orElse(null);
+        checkSummaryGenerationPermission(article, memberId, existingSummary != null);
 
         // 본문이 없으면 요약할 수 없다
         if (article.getContent() == null || article.getContent().isBlank()) {
@@ -437,12 +443,23 @@ public class ArticleService {
     }
 
     /**
-     * 기사 작성자만 AI 요약을 생성하거나 재생성할 수 있다.
+     * AI 요약 생성/재생성 권한을 검증한다.
      *
-     * AI 요약도 DB에 저장되는 기사 부가 정보이므로, 임의의 사용자가 덮어쓰지 못하게 막는다.
+     * 정책:
+     *   - 작성자가 있는 기사: 작성자 본인만 생성/재생성 가능
+     *   - 자동수집 기사(writer == null) + 요약 없음: 로그인한 어떤 사용자든 최초 1회 생성 가능
+     *     → 서비스 컨셉이 "AI 뉴스 요약"이라 자동수집 기사도 요약을 볼 수 있어야 의미가 있다.
+     *   - 자동수집 기사 + 이미 요약 있음: 재생성 불가 (소유자가 없어서 누가 덮어쓸지 결정할 수 없음)
      */
-    private void checkSummaryGenerationPermission(Article article, Long memberId) {
-        if (article.getWriter() == null || !article.getWriter().getId().equals(memberId)) {
+    private void checkSummaryGenerationPermission(Article article, Long memberId, boolean summaryExists) {
+        if (article.getWriter() == null) {
+            if (summaryExists) {
+                throw new ForbiddenException("자동수집 기사의 요약은 한 번만 생성할 수 있습니다.");
+            }
+            // 자동수집 기사 + 요약 없음 → 로그인 사용자면 누구나 1회 생성 허용
+            return;
+        }
+        if (!article.getWriter().getId().equals(memberId)) {
             throw new ForbiddenException("본인이 작성한 기사만 AI 요약을 생성할 수 있습니다.");
         }
     }
