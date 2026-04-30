@@ -44,6 +44,11 @@ export function ArticleDetailSection({
 
   const currentArticle = article;
   const isOwner = Boolean(currentUser && article.writerId === currentUser.id);
+  // 자동수집 기사(writer 없음)는 백엔드 정책상 로그인 사용자가 최초 1회 요약을 만들 수 있다.
+  // 재생성은 소유자가 정해진 owner 기사에 한해서만 허용한다.
+  const isSystemArticle = article.writerId == null;
+  const canCreateInitialSummary = Boolean(currentUser && (isOwner || isSystemArticle));
+  const canRegenerateSummary = isOwner;
   const summaryMeta = article.summary?.summarySource === "SEED"
     ? { label: "📌 샘플 요약", hint: "시연용 샘플 데이터입니다" }
     : { label: "✦ AI 요약", hint: "AI가 자동으로 요약했습니다" };
@@ -114,7 +119,7 @@ export function ArticleDetailSection({
                 model: {article.summary.modelName}
               </span>
             ) : null}
-            {isOwner ? (
+            {canRegenerateSummary ? (
               <button
                 className="btn btn-ghost"
                 style={{ marginLeft: "auto", fontSize: "12px", padding: "4px 10px" }}
@@ -190,9 +195,11 @@ export function ArticleDetailSection({
             </li>
           </ul>
         </div>
-      ) : isOwner ? (
+      ) : canCreateInitialSummary ? (
         <div className="ai-box" style={{ textAlign: "center", padding: "24px" }}>
-          <p style={{ color: "var(--ash)", marginBottom: "12px" }}>아직 AI 요약이 없습니다</p>
+          <p style={{ color: "var(--ash)", marginBottom: "12px" }}>
+            {isSystemArticle ? "AI 요약을 생성할 수 있습니다 (최초 1회)" : "아직 AI 요약이 없습니다"}
+          </p>
           <button
             className="btn btn-solid"
             disabled={isSummaryGenerating}

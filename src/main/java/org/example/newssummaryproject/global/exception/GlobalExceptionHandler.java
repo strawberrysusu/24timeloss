@@ -1,5 +1,6 @@
 package org.example.newssummaryproject.global.exception;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -108,5 +109,13 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(ErrorResponse.of(400, "MISSING_PARAMETER",
                         "필수 파라미터가 누락되었습니다: " + e.getParameterName()));
+    }
+
+    // 409 — DB unique 제약 등 무결성 충돌 (서비스 코드의 사전 체크를 뚫고 INSERT/UPDATE가 실패한 경우)
+    // 동시 요청 race condition에서 발생할 수 있어 친절한 409 응답으로 변환한다.
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ErrorResponse> handleDataIntegrity(DataIntegrityViolationException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ErrorResponse.of(409, "DUPLICATE", "이미 존재하는 데이터입니다."));
     }
 }

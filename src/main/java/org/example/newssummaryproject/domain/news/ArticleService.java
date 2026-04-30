@@ -394,6 +394,15 @@ public class ArticleService {
 
         checkOwnership(article, memberId);
 
+        // 자기 자신을 제외하고 같은 originalUrl이 이미 존재하면 거부 — DB unique 제약 충돌을 미리 친절한 메시지로 막는다.
+        if (request.originalUrl() != null && !request.originalUrl().isBlank()) {
+            articleRepository.findByOriginalUrl(request.originalUrl())
+                    .filter(existing -> !existing.getId().equals(articleId))
+                    .ifPresent(existing -> {
+                        throw new IllegalArgumentException("이미 등록된 기사입니다: " + existing.getTitle());
+                    });
+        }
+
         article.update(request.category(), request.title(), request.content(),
                 request.source(), request.originalUrl(),
                 request.thumbnailUrl(), request.videoEmbedUrl());
