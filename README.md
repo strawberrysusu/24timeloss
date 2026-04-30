@@ -9,7 +9,7 @@
 ## 주요 기능
 
 - **AI 뉴스 요약**: URL로 기사를 등록하면 본문을 자동 추출(Jsoup + Readability4J)하고 AI(LLaMA 3.3 70B)가 3줄 요약 + 핵심 포인트 생성
-- **자동 뉴스 수집**: 네이버 검색 API로 카테고리별 최신 뉴스를 30분 간격 수집, 90일 후 미열람 시 자동 삭제 (저장된 기사는 영구 보존)
+- **자동 뉴스 수집**: 네이버 검색 API로 카테고리별 최신 뉴스를 30분 간격 수집, 보관 기간이 지난 미저장 자동수집 기사는 자동 삭제 (저장한 기사·사용자 작성 기사는 영구 보존)
 - **카테고리별 뉴스 피드**: 정치, 경제, 사회, IT/과학, 세계, 스포츠, 연예 카테고리 분류
 - **개인화**: 관심 카테고리 설정, 기사 저장, 읽기 기록, 추천/트렌딩/브리핑
 - **인증**: 이메일/비밀번호 + Google/Naver OAuth2 소셜 로그인
@@ -21,7 +21,7 @@
 |------|------|
 | **Backend** | Java 17, Spring Boot 4, Spring Security, Spring Data JPA |
 | **Frontend** | React 19, TypeScript, Vite, React Router |
-| **Database** | MySQL 8.0, Flyway (스키마 마이그레이션 V1~V5) |
+| **Database** | MySQL 8.0, Flyway (버전 기반 DB 스키마 마이그레이션) |
 | **인증** | JWT (Access + DB-stateful Refresh + Rotation), Google/Naver OAuth2, OAuth one-time code 교환 |
 | **인프라** | Docker Compose, Nginx (HTTPS + 보안 헤더), Let's Encrypt, GitHub Actions CI/CD |
 | **AI** | NVIDIA NIM (LLaMA 3.3 70B), OpenAI Chat Completions 호환, SSE 스트리밍 |
@@ -206,7 +206,7 @@ OAuth2LoginSuccessHandler:
 **대응**:
 - 백엔드 검증: `videoEmbedUrl`은 `tv.naver.com/embed/`, `youtube.com/embed/`, `youtube-nocookie.com/embed/` 도메인만 허용
 - 일반 URL: `http://` 또는 `https://`로 시작해야 함
-- iframe에 `sandbox="allow-scripts allow-presentation allow-popups allow-popups-to-escape-sandbox"` + `referrerPolicy="no-referrer"`
+- iframe에 `sandbox="allow-scripts allow-same-origin allow-presentation allow-popups allow-popups-to-escape-sandbox"` + `referrerPolicy="no-referrer-when-downgrade"` (네이버 플레이어가 same-origin/Referer 없이는 로드되지 않아 의도적으로 완화 — 임베드 도메인은 백엔드 allowlist로 제한)
 
 ### 5. Rate Limiting & 외부 API 보호
 - AI 요약 재생성: 같은 기사당 30초 cooldown (인메모리 ConcurrentHashMap)
@@ -265,7 +265,7 @@ OAuth2LoginSuccessHandler:
 ### 6. 자동수집 기사 무한 적재 우려
 **문제**: 30분마다 카테고리당 5건씩 수집 → 1년 ≈ 36만 건. 검색 품질 저하 + AI 요약 비용 낭비 가능.
 
-**의사결정**: "최신 자동수집 + 미열람 90일 = 자동삭제, 누가 저장하면 영구 보존" 정책으로 결정. `writer IS NULL AND created_at < cutoff AND saved_articles에 없음` 조건. 사용자 직접 작성 기사는 절대 안 건드림.
+**의사결정**: "자동수집 기사 중 누구도 저장하지 않은 것만 보관 기간 경과 후 삭제, 저장한 기사는 영구 보존" 정책으로 결정. `writer IS NULL AND created_at < cutoff AND saved_articles에 없음` 조건. 한 번 본 것(read history)과 의도적으로 보관한 것(saved)은 다른 의미라고 보고 read history는 보존 조건에 넣지 않았다. 사용자 직접 작성 기사는 절대 안 건드림.
 
 **효과**: 면접에서 *"운영 부담 고려해서 데이터 라이프사이클 정책 분리"*로 어필 가능.
 
@@ -399,7 +399,7 @@ NAVER_CLIENT_ID=검색_API_키
 NAVER_CLIENT_SECRET=검색_API_시크릿
 NAVER_NEWS_COLLECT_ENABLED=true     # 기본 false
 NAVER_NEWS_COLLECT_SIZE=5            # 카테고리당 수집 개수
-ARTICLE_RETENTION_DAYS=90            # 미열람 자동삭제 (0=비활성)
+ARTICLE_RETENTION_DAYS=90            # 미저장 자동수집 기사 보관 기간(일), 0=비활성
 ```
 
 ## 테스트
@@ -463,7 +463,7 @@ ARTICLE_RETENTION_DAYS=90            # 미열람 자동삭제 (0=비활성)
 | `NAVER_CLIENT_SECRET` | - | 네이버 검색 API 시크릿 | - |
 | `NAVER_NEWS_COLLECT_ENABLED` | - | 자동수집 ON/OFF | `false` |
 | `NAVER_NEWS_COLLECT_SIZE` | - | 카테고리당 수집 개수 | `5` |
-| `ARTICLE_RETENTION_DAYS` | - | 미열람 자동수집 기사 보관 기간 (0=비활성) | `0` |
+| `ARTICLE_RETENTION_DAYS` | - | 미저장 자동수집 기사 보관 기간(일) — 누구도 저장하지 않은 자동수집 기사만 삭제 (0=비활성) | `0` |
 | `APP_HOST` | O (prod) | 운영 도메인 (Nginx/인증서용) | - |
 
 ## 기본 시드 데이터

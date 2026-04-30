@@ -25,11 +25,14 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshToken, Long
     int revokeAllForMember(@Param("memberId") Long memberId, @Param("now") LocalDateTime now);
 
     /**
-     * 만료되었거나 폐기된 지 일정 기간 지난 토큰을 일괄 삭제한다.
-     * cleanup 스케줄러에서 호출 — 테이블이 무한히 커지지 않도록 정리한다.
-     * 폐기 직후 토큰은 재사용 탐지에 필요하므로 일정 기간 보존 후 삭제한다.
+     * 만료된 토큰 또는 폐기된 지 일정 기간 지난 토큰을 일괄 삭제한다.
+     *
+     * - 만료 토큰: now 기준으로 즉시 삭제 (이미 사용 불가 상태)
+     * - 폐기 토큰: 재사용 탐지 신호로 쓰일 수 있어 revokedCutoff(예: 14일 전) 이후 삭제
      */
     @Modifying
-    @Query("DELETE FROM RefreshToken t WHERE t.expiresAt < :cutoff OR t.revokedAt < :cutoff")
-    int deleteExpiredOrOldRevoked(@Param("cutoff") LocalDateTime cutoff);
+    @Query("DELETE FROM RefreshToken t WHERE t.expiresAt < :now OR t.revokedAt < :revokedCutoff")
+    int deleteExpiredOrOldRevoked(
+            @Param("now") LocalDateTime now,
+            @Param("revokedCutoff") LocalDateTime revokedCutoff);
 }

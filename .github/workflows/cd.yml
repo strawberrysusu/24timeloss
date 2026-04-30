@@ -67,7 +67,7 @@ jobs:
 
             echo "Waiting for HTTPS health check..."
             for i in 1 2 3 4 5 6 7 8 9; do
-              if curl --fail --silent --resolve "$APP_HOST:443:127.0.0.1" "https://$APP_HOST/health" > /dev/null; then
+              if curl --fail --silent --resolve "$APP_HOST:443:127.0.0.1" "https://$APP_HOST/actuator/health" > /dev/null; then
                 docker compose -f docker-compose.prod.yml ps
                 exit 0
               fi
