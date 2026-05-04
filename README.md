@@ -6,6 +6,14 @@
 >
 > **테스트 계정**: `test@test.com` / `1234` (dev 환경 시드 데이터)
 
+## 화면 미리보기
+
+| 메인 화면 | 기사 상세 + AI 요약 |
+|---|---|
+| ![메인 화면](docs/screenshots/01-home.png) | ![기사 상세 + AI 요약](docs/screenshots/02-detail.png) |
+| **로그인 (Email + OAuth2)** | **마이페이지 (저장/읽기 기록)** |
+| ![로그인](docs/screenshots/03-login.png) | ![마이페이지](docs/screenshots/04-mypage.png) |
+
 ## 주요 기능
 
 - **AI 뉴스 요약**: URL로 기사를 등록하면 본문을 자동 추출(Jsoup + Readability4J)하고 AI(LLaMA 3.3 70B)가 3줄 요약 + 핵심 포인트 생성
