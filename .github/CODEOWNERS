@@ -1,0 +1,4 @@
+# 모든 파일 변경 시 자동으로 @strawberrysusu가 리뷰어로 지정됩니다.
+# 브랜치 보호 규칙(Require approvals)과 함께 동작:
+# 팀원이 PR을 열면 자동으로 owner에게 리뷰 요청이 가고, owner 승인 없이는 main에 머지 불가.
+* @strawberrysusu
