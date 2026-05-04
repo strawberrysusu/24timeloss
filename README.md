@@ -1,5 +1,7 @@
 # NewsPick - AI 뉴스 요약 서비스
 
+[![CI](https://github.com/strawberrysusu/24timeloss/actions/workflows/ci.yml/badge.svg)](https://github.com/strawberrysusu/24timeloss/actions/workflows/ci.yml)
+
 뉴스 기사를 등록하면 AI가 3줄 요약과 핵심 포인트를 자동 생성하는 웹 서비스입니다.
 
 > **서비스 주소**: https://43.202.121.142.nip.io

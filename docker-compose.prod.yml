@@ -54,6 +54,7 @@ services:
       ARTICLE_RETENTION_DAYS: ${ARTICLE_RETENTION_DAYS:-0}
       AI_API_KEY: ${AI_API_KEY:-}
       AI_MODEL: ${AI_MODEL:-meta/llama-3.3-70b-instruct}
+      AI_MOCK_ENABLED: ${AI_MOCK_ENABLED:-false}
     depends_on:
       db:
         condition: service_healthy

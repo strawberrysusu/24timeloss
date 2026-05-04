@@ -11,6 +11,7 @@ import org.example.newssummaryproject.domain.news.dto.ArticleDetailResponse;
 import org.example.newssummaryproject.domain.news.dto.ArticleListResponse;
 import org.example.newssummaryproject.domain.news.dto.CreateArticleRequest;
 import org.example.newssummaryproject.domain.news.dto.UpdateArticleRequest;
+import org.example.newssummaryproject.global.exception.DuplicateException;
 import org.example.newssummaryproject.global.exception.ForbiddenException;
 import org.example.newssummaryproject.global.exception.NotFoundException;
 import org.springframework.beans.factory.annotation.Value;
@@ -359,11 +360,13 @@ public class ArticleService {
         Member writer = memberRepository.findById(memberId)
                 .orElseThrow(() -> new NotFoundException("회원을 찾을 수 없습니다. id=" + memberId));
 
-        // 같은 URL로 이미 등록된 기사가 있는지 확인
+        // 같은 URL로 이미 등록된 기사가 있는지 확인 (사전 체크)
+        // DuplicateException을 던져 GlobalExceptionHandler가 409 Conflict로 응답하도록 한다.
+        // DB unique 제약(DataIntegrityViolationException)도 같은 409로 통일되므로 응답 일관성을 유지한다.
         if (request.originalUrl() != null && !request.originalUrl().isBlank()) {
             articleRepository.findByOriginalUrl(request.originalUrl())
                     .ifPresent(existing -> {
-                        throw new IllegalArgumentException("이미 등록된 기사입니다: " + existing.getTitle());
+                        throw new DuplicateException("이미 등록된 기사입니다: " + existing.getTitle());
                     });
         }
 
@@ -399,7 +402,7 @@ public class ArticleService {
             articleRepository.findByOriginalUrl(request.originalUrl())
                     .filter(existing -> !existing.getId().equals(articleId))
                     .ifPresent(existing -> {
-                        throw new IllegalArgumentException("이미 등록된 기사입니다: " + existing.getTitle());
+                        throw new DuplicateException("이미 등록된 기사입니다: " + existing.getTitle());
                     });
         }
 
